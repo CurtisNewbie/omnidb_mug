@@ -9,6 +9,59 @@ Omnidb source code:
 - for websocket, `ws_core.py:622`
 - for command dispatching `ws_core.py:155`
 
+## Database Info 
+
+POST `.../get_database_list/`
+
+- `cookie: omnidb_csrftoken=xxxxxxxxxxxxxxxxxx; omnidb_sessionid=xxxxxxxxxxxxxxxxxxxx`
+
+Response:
+
+```json
+{
+    "v_data": {
+        "v_select_html": "...",
+        "v_select_group_html": "...",
+        "v_connections": [
+            {
+                "v_db_type": "mysql",
+                "v_alias": "[name 1]",
+                "v_conn_id": 1,
+                "v_console_help": "...",
+                "v_database": ""
+            },
+            {
+                "v_db_type": "mysql",
+                "v_alias": "[name 2]",
+                "v_conn_id": 2,
+                "v_console_help": "...",
+                "v_database": ""
+            }
+        ],
+        "v_groups": [
+            {
+                "v_group_id": 0,
+                "v_name": "All connections",
+                "conn_list": []
+            }
+        ],
+        "v_remote_terminals": [],
+        "v_id": 0,
+        "v_existing_tabs": [
+            {
+                "index": 1,
+                "snippet": "",
+                "title": "Query",
+                "tab_db_id": 57
+            }
+        ]
+    },
+    "v_error": false,
+    "v_error_id": -1
+}
+```
+
+
 ## Flow
 
 T0: client -> server (`v_data` is the `omnidb_sessionid` in cookie)
