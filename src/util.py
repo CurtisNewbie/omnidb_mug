@@ -42,15 +42,15 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
             f"Login failed, unable to find set-cookie, make sure that you are not already signed-in in your browser, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
 
     sh = OSession(resp.headers['Set-Cookie'], csrf, host, protocol)
-    print(f"omnidb_sessionid={sh.sessionid}")
     if not sh.sessionid:
         raise ValueError(
             f"Login failed, unable to find omnidb_sessionid, make sure that you are not already signed-in in your browser, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
 
+    print(f"cookie: {sh.cookie}")
     return sh
 
 
-def send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> list[str]:
+def ws_send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> list[str]:
     ws.send(payload)
     if log_msg: print(f"ws sent: '{payload}'")
     r = []
@@ -63,8 +63,13 @@ def send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> list[s
 
 def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]]:
     msg = f'{{"v_code":1,"v_context_code":{kw["v_context_code"]},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{kw["v_db_index"]},"v_conn_tab_id":"{kw["v_conn_tab_id"]}","v_tab_id":"{kw["v_tab_id"]}","v_tab_db_id":{kw["v_tab_db_id"]},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
-    resp = send_recv(ws, msg, False, 2)
+    resp = ws_send_recv(ws, msg, kw["log_msg"], 2)
     j: dict = json.loads(resp[1])
+    if j["v_error"]:
+        errmsg = j["v_data"]["message"]
+        print(f"Error: '{errmsg}'")
+        return [[], []]
+
     col = j["v_data"]["v_col_names"]
     rows = j["v_data"]["v_data"]
     print(f"Columns: {col}")
@@ -74,7 +79,7 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]
     return [col, rows]
 
 
-def connect_ws(sh: OSession, host: str, protocol: str = "wss://") -> WebSocket:
+def ws_connect(sh: OSession, host: str, protocol: str = "wss://") -> WebSocket:
     url = protocol + host
     if not url.endswith("/"):
         url += "/"
