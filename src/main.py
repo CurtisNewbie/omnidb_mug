@@ -22,6 +22,7 @@ host = ''
 
 # configuration
 debug=False
+export_limit = 400
 
 
 def extract_sql(cmd: str) -> str:
@@ -38,6 +39,7 @@ def launch_console():
     global csrf 
     global uname
     global host
+    global export_limit
 
     if not host: host = os.getenv('OMNIDB_MUG_HOST')
     if not host:
@@ -77,24 +79,61 @@ def launch_console():
             sql = extract_sql(cmd)
             if sql == "": continue
 
-            cols, rows = util.exec_query(ws, sql, 
-                            log_msg=False,
-                            v_db_index=v_db_index, 
-                            v_context_code=ctx_id,
-                            v_conn_tab_id=v_conn_tab_id,
-                            v_tab_id=v_tab_id, 
-                            v_tab_db_id=v_tab_db_id)
-
-            # https://github.com/CurtisNewbie/excelparser
+            batch_export = False
             if cmd.startswith(CMD_EXPORT): 
-                import excelparser
-                ep = excelparser.ExcelParser()   
-                ep.rows = rows
-                ep.cols = cols 
+                batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+
+            # TODO: this part of the code looks so stupid, but it kinda works, fix it later :D
+            if batch_export:
                 outf = input('Please specify where to export: ').strip()
-                if outf: 
-                    print(f"Exporting to '{outf}'")
+                if not outf: outf = "batch_export.xlsx"
+                offset = 0  
+                acc_cols = []
+                acc_rows = []
+
+                while True: 
+                    if sql.endswith(";"): sql = sql[:len(sql) - 1]
+                    offset_sql = sql + f" limit {offset}, {export_limit}" 
+                    print(offset_sql)
+                    cols, rows = util.exec_query(ws, offset_sql, 
+                                    log_msg=False,
+                                    v_db_index=v_db_index, 
+                                    v_context_code=ctx_id,
+                                    v_conn_tab_id=v_conn_tab_id,
+                                    v_tab_id=v_tab_id, 
+                                    v_tab_db_id=v_tab_db_id)
+                
+                    if offset < 1: acc_cols = cols
+                    acc_rows += rows
+                    if len(rows) < 1 or len(rows) < export_limit: break
+                    offset += export_limit
+
+                # https://github.com/CurtisNewbie/excelparser
+                import excelparser
+                ep = excelparser.ExcelParser(outf)   
+                ep.rows = acc_rows
+                ep.cols = acc_cols 
+                ep.export(outf)
+                print(f"Exported to '{outf}'")
+            else:
+                cols, rows = util.exec_query(ws, sql, 
+                                log_msg=False,
+                                v_db_index=v_db_index, 
+                                v_context_code=ctx_id,
+                                v_conn_tab_id=v_conn_tab_id,
+                                v_tab_id=v_tab_id, 
+                                v_tab_db_id=v_tab_db_id)
+
+                # https://github.com/CurtisNewbie/excelparser
+                if cmd.startswith(CMD_EXPORT): 
+                    outf = input('Please specify where to export: ').strip()
+                    if not outf: outf = "export.xlsx"
+                    import excelparser
+                    ep = excelparser.ExcelParser(outf)   
+                    ep.rows = rows
+                    ep.cols = cols 
                     ep.export(outf)
+                    print(f"Exported to '{outf}'")
         except KeyboardInterrupt:
             print("\nEnter 'exit' to exit")
 
