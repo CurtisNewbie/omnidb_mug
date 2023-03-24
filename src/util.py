@@ -50,12 +50,28 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
     return sh
 
 
-def send_recv(ws: WebSocket, payload, wait_recv_times=1):
+def send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> list[str]:
     ws.send(payload)
-    print(f"ws sent: '{payload}'")
+    if log_msg: print(f"ws sent: '{payload}'")
+    r = []
     for i in range(wait_recv_times):
-        r = ws.recv()
-        print(f"ws received: '{r}'")
+        rcv = ws.recv()
+        r.append(rcv)
+        if log_msg: print(f"ws received: [{i}] '{rcv}'")
+    return r
+
+
+def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]]:
+    msg = f'{{"v_code":1,"v_context_code":{kw["v_context_code"]},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{kw["v_db_index"]},"v_conn_tab_id":"{kw["v_conn_tab_id"]}","v_tab_id":"{kw["v_tab_id"]}","v_tab_db_id":{kw["v_tab_db_id"]},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
+    resp = send_recv(ws, msg, False, 2)
+    j: dict = json.loads(resp[1])
+    col = j["v_data"]["v_col_names"]
+    rows = j["v_data"]["v_data"]
+    print(f"Columns: {col}")
+    for i in range(len(rows)):
+        print(f"Row[{i}]: {rows[i]}")
+    print()
+    return [col, rows]
 
 
 def connect_ws(sh: OSession, host: str, protocol: str = "wss://") -> WebSocket:
