@@ -8,6 +8,22 @@ from websocket import create_connection, WebSocket
 DEFAULT_PROTOCOL = "https://"
 session = requests.Session() # reuse connection
 
+class OTab:
+    def __init__(self, index, tab_db_id, title):
+        self.index = index 
+        self.tab_db_id = tab_db_id
+        self.title = title 
+
+class OConnection:
+    def __init__(self, v_alias, v_conn_id):
+        self.v_alias = v_alias
+        self.v_conn_id = v_conn_id
+
+class ODatabase:
+    def __init__(self, connections: list[OConnection], tabs: list[OTab]):
+        self.connections = connections
+        self.tabs = tabs
+
 class OSession:
     def __init__(self, set_cookie: str, csrf_token: str, host: str, protocol: str):
         self.sessionid = ""
@@ -15,13 +31,26 @@ class OSession:
         self.protocol = protocol
         self.csrf = csrf_token
 
-        for v in set_cookie.split(';'):
-            kv = v.strip().split('=')
-            if kv[0] == 'omnidb_sessionid':
-                self.sessionid = kv[1]
-                break
-
+        self.sessionid = parse_set_cookie(set_cookie, 'omnidb_sessionid')
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
+
+
+def get_csrf_token(host: str, protocol: str = DEFAULT_PROTOCOL, debug = False) -> str:
+    url = protocol + host + "/"
+    if debug: print(f"Trying to get csrf token, url: {url}")
+    resp: requests.Response = session.get(url)
+    if not 'Set-Cookie' in resp.headers: sys_exit(1, f"Failed to retrieve csrf token")
+    csrf = parse_set_cookie(resp.headers['Set-Cookie'], 'omnidb_csrftoken')
+    if debug: print(f"csrf token: '{csrf}'")
+    return csrf
+
+
+def parse_set_cookie(header: str, key: str) -> str:
+    for v in header.split(';'):
+        kv = v.strip().split('=')
+        if kv[0] == key:
+            return kv[1]
+    return None
 
 
 def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_PROTOCOL, debug = False) -> "OSession":
@@ -158,3 +187,31 @@ def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database,
     })
     if resp.status_code != 200:
         sys_exit(1, f"Change active database failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
+
+
+def get_database_list(sh: OSession, debug = False) -> ODatabase:
+    url = sh.protocol + sh.host + '/get_database_list/'
+    if debug: print(f"Get database list, url: '{url}'")
+
+    resp: requests.Response = session.post(url, data={'data': ''}, headers={
+        'cookie': sh.cookie,
+        'x-csrftoken': sh.csrf,
+        'x-requested-with': 'XMLHttpRequest'
+    })
+    if resp.status_code != 200:
+        sys_exit(1, f"Get database list failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
+    
+    j = json.loads(resp.text)
+    connections = []
+    if 'v_connections' in j['v_data']:
+        for t in j['v_data']['v_connections']:
+            connections.append(OConnection(t['v_alias'], t['v_conn_id']))
+    
+    tabs = []
+    if 'v_existing_tabs' in j['v_data']:
+        for t in j['v_data']['v_existing_tabs']:
+            tabs.append(OTab(t['index'], t['tab_db_id'], t['title']))
+
+    return ODatabase(connections, tabs)  
+
+

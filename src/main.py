@@ -1,19 +1,14 @@
 import util
 import getpass
-import sys
 import os
 import re
 import readline # don't remove this, this is for input()
 
 EXPORT_LEN = len("export")
 
-# TODO remove hard-coded values
-# Session based stuff, we can use Chrome dev tool to check the values that we may use
-v_tab_db_id=57
+# TODO these doesn't seem to be important :D
 v_tab_id="conn_tabs_tab4_tabs_tab1"
-v_db_index=1
 v_conn_tab_id = "conn_tabs_tab4"
-csrf = 'NqZm7ziofRZchMRZfrg9LXaQ1TdJWVcqn9XdSpKi8GsJZUlmeZTN8DNzY7ZjmAdl'
 
 # Credentials, Host
 # environment variable: OMNIDB_MUG_HOST
@@ -22,8 +17,10 @@ uname = ''
 host = ''
 
 # configuration
-debug = False
-export_limit = 400
+# environment variable: OMNIDB_MUG_DEBUG
+debug = False       
+export_limit = 400  
+
 
 def export(cols, rows, outf):
     # https://github.com/CurtisNewbie/excelparser
@@ -40,14 +37,9 @@ def is_export_cmd(cmd: str) -> str:
 
 
 def launch_console():
-    global v_tab_db_id
-    global v_tab_id
-    global v_db_index
-    global v_conn_tab_id 
-    global csrf 
-    global uname
-    global host
-    global export_limit
+    global debug, v_tab_id, v_conn_tab_id, uname, host, export_limit
+
+    if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
 
     if not host: host = os.getenv('OMNIDB_MUG_HOST')
     if not host: input("Enter host of Omnidb: ")
@@ -57,11 +49,33 @@ def launch_console():
     if not uname: uname = input("Enter Username: ")
     if not uname: util.sys_exit(0, "Username is required")
 
+    # retrieve csrf token first by request '/' path
+    csrf = util.get_csrf_token(host, debug=debug)
+
     pw = getpass.getpass(f"Enter Password for '{uname}':").strip()
     if not pw: util.sys_exit(0, "Password is required")
 
     # login
     sh = util.login(csrf, host, uname, pw, debug=debug)
+
+    # list database, pick one to use
+    db = util.get_database_list(sh, debug=debug)
+    v_tab_db_id = db.tabs[0].tab_db_id 
+    v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
+
+    print("Available database connections:")
+    prev_selected = 0
+    for i in range(len(db.connections)): 
+        if db.connections[i].v_conn_id  == v_db_index: 
+            prev_selected = i
+            print(f"* [{i}] '{db.connections[i].v_alias}'")
+        else: print(f"  [{i}] '{db.connections[i].v_alias}'")
+
+    selected_db = input("Please select database: ") 
+    if not selected_db: selected_db = prev_selected 
+    selected_db = int(selected_db)
+    v_db_index = db.connections[selected_db].v_conn_id
+    print(f'Selected database \'{db.connections[selected_db].v_alias}\'')
 
     # change active database
     util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
