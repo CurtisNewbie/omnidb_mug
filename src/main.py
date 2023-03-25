@@ -22,9 +22,8 @@ uname = ''
 host = ''
 
 # configuration
-debug=False
+debug = False
 export_limit = 400
-
 
 def export(cols, rows, outf):
     # https://github.com/CurtisNewbie/excelparser
@@ -51,17 +50,15 @@ def launch_console():
     global export_limit
 
     if not host: host = os.getenv('OMNIDB_MUG_HOST')
-    if not host:
-        print(f"Please specify host of Omnidb")
-        sys.exit(0)
+    if not host: input("Enter host of Omnidb: ")
+    if not host: util.sys_exit(0, "Host of Omnidb is required")
 
     if not uname: uname = os.getenv('OMNIDB_MUG_USER')
     if not uname: uname = input("Enter Username: ")
+    if not uname: util.sys_exit(0, "Username is required")
 
     pw = getpass.getpass(f"Enter Password for '{uname}':").strip()
-    if not pw:
-        print(f"Please enter Password for '{uname}':")
-        sys.exit(0)
+    if not pw: util.sys_exit(0, "Password is required")
 
     # login
     sh = util.login(csrf, host, uname, pw, debug=debug)
@@ -92,7 +89,7 @@ def launch_console():
             if do_export: 
                 sql: str = sql[EXPORT_LEN:].strip()
                 if sql == "": continue
-                if not util.query_has_limit(sql) :
+                if not util.query_has_limit(sql):
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
 
             if debug: print(f"sql: '{sql}'")
@@ -137,12 +134,12 @@ def launch_console():
                     if not outf: outf = "export.xlsx"
                     export(rows, cols, outf)
         except KeyboardInterrupt:
-            print("\nEnter 'exit' to exit")
+            print()
 
     # disconnect websocket
     ws.close()
     if debug: print("Websocket disconnected")
-    print("bye!")
+    print("Bye!")
 
 
 if __name__ == "__main__":

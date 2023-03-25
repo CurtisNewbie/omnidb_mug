@@ -35,19 +35,16 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
         'x-csrftoken': csrf,
         'x-requested-with': 'XMLHttpRequest'
     })
+
     if resp.status_code != 200:
-        raise ValueError(
-            f"Login failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
-
-    # omnidb_sessionid
+        sys_exit(1, f"Login failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
     if not 'Set-Cookie' in resp.headers:
-        raise ValueError(
-            f"Login failed, unable to find set-cookie, make sure that you are not already signed-in in your browser, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
+        sys_exit(1, f"Login failed, password incorrect")
 
+    # parse cookie 
     sh = OSession(resp.headers['Set-Cookie'], csrf, host, protocol)
     if not sh.sessionid:
-        raise ValueError(
-            f"Login failed, unable to find omnidb_sessionid, make sure that you are not already signed-in in your browser, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
+        sys_exit(1, f"Login failed, unable to extract cookie in response, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
 
     if debug: print(f"cookie: {sh.cookie}")
     return sh
@@ -64,6 +61,11 @@ def ws_send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> lis
     return r
 
 
+def sys_exit(status: int, msg: str):
+    if msg: print(msg)
+    sys.exit(status)
+
+
 def sjoin(cnt: int, token: str) -> str:
     s = ""
     for i in range(cnt): s += token
@@ -78,7 +80,7 @@ def query_has_limit(sql: str) -> bool:
     return re.match(".* ?[Ll][Ii][Mm][Ii][Tt]", sql)
 
 
-def colwidth(s: str) -> int:
+def str_width(s: str) -> int:
     l = 0
     for i in range(len(s)): 
         w = unicodedata.east_asian_width(s[i])
@@ -94,32 +96,36 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[bool, list[str],list[list
         errmsg = j["v_data"]["message"]
         print(f"Error: '{errmsg}'")
         return [False, [], []]
+    
+    if not "v_data" in j:
+        print("Unable to find 'v_data' in response, connection may have lost")
+        return [False, [], []]
 
     col = j["v_data"]["v_col_names"]
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
      
+    # max length among the rows
     indent : dict[int][int] = {}
-    for i in range(len(col)): indent[i] = colwidth(col[i])
+    for i in range(len(col)): indent[i] = str_width(col[i])
     for r in rows: 
-        for i in range(len(col)):
-            cl = len(r[i])
-            if cl > indent[i]: indent[i] = cl # max length among the rows
+        for i in range(len(col)): indent[i] = max(indent[i], len(r[i]))
 
-    col_title = "| "
-    col_sep = "|-"
-    for i in range(len(col)): 
-        col_title += col[i] + spaces(indent[i] - colwidth(col[i]) + 1) + " | "
-        col_sep += sjoin(indent[i] + 1, "-") + "-|"
-        if i < len(col) - 1: col_sep += "-"
-    print(col_sep + "\n" + col_title + "\n" + col_sep)
+    if len(col) > 0:
+        print()
+        col_title = "| "
+        col_sep = "|-"
+        for i in range(len(col)): 
+            col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
+            col_sep += sjoin(indent[i] + 1, "-") + "-|"
+            if i < len(col) - 1: col_sep += "-"
+        print(col_sep + "\n" + col_title + "\n" + col_sep)
 
-    for r in rows:
-        row_ctn = "| "
-        for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - colwidth(r[i])) + " | "
-        print(row_ctn)
-    print(col_sep)
-
+        for r in rows:
+            row_ctn = "| "
+            for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
+            print(row_ctn)
+        print(col_sep)
     print()
     print(f"Total: {len(rows)}")
     print(f"Cost : {cost}")
@@ -151,5 +157,4 @@ def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database,
         'x-requested-with': 'XMLHttpRequest'
     })
     if resp.status_code != 200:
-        raise ValueError(
-            f"Change active database failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
+        sys_exit(1, f"Change active database failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
