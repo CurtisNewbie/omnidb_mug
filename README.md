@@ -1,80 +1,18 @@
 # omnidb_mug
 
-Omnidb Repo: https://github.com/OmniDB/OmniDB/tree/2.15.0
-Compatibility: omnidb v2.15.0
-Client Lib: https://github.com/websocket-client/websocket-client/
+Simple command line console tool for OmniDB.
 
-Omnidb source code:
+```sh
+python3 -m pip install -r requirements.txt
 
-- for websocket, `ws_core.py:622`
-- for command dispatching `ws_core.py:155`
-
-## Flow
-
-T0: client -> server (`v_data` is the `omnidb_sessionid` in cookie)
-
-```json
-{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"xxxxxxxwd4lvi5shpujfl8d62lce779a"}
+python3 src/main.py
 ```
 
-T1: client -> server (query)
+- Omnidb >= 2.15: https://github.com/OmniDB/OmniDB/tree/2.15.0
+- WebSocket Client Lib: https://github.com/websocket-client/websocket-client/
+- [CurtisNewbie/excelparser](https://github.com/CurtisNewbie/excelparser) is needed for exporting query result to excel files
 
-```json
-{
-    "v_code": 1,
-    "v_context_code": 2,
-    "v_error": false,
-    "v_data": {
-        "v_sql_cmd": "[SQL QUERY]",
-        "v_sql_save": "",
-        "v_cmd_type": null,
-        "v_db_index": 1,
-        "v_conn_tab_id": "conn_tabs_tab4",
-        "v_tab_id": "conn_tabs_tab4_tabs_tab1",
-        "v_tab_db_id": 57,
-        "v_mode": 0,
-        "v_all_data": false,
-        "v_log_query": true,
-        "v_tab_title": "Query",
-        "v_autocommit": true
-    }
-}
-```
+## Demo
 
-T2: server -> client (result)
-
-```json
-{
-    "v_code": 1,
-    "v_context_code": 2,
-    "v_error": false,
-    "v_data": {
-        "v_col_names": [
-            "col1",
-            "col2"
-        ],
-        "v_data": [
-            [
-                "r1data1",
-                "r1data2"
-            ],
-            [
-                "r2data1",
-                "r2data2"
-            ]
-        ],
-        "v_last_block": true,
-        "v_duration": "69.235 ms",
-        "v_notices": "",
-        "v_notices_length": 0,
-        "v_inserted_id": null,
-        "v_status": 18,
-        "v_con_status": 1,
-        "v_chunks": true
-    }
-}
-```
-
-
-
+<img src="demo/demo1.jpeg" alt="demo1" width="600">
 
