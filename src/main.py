@@ -2,9 +2,10 @@ import util
 import getpass
 import sys
 import os
+import re
+import readline # don't remove this, this is for input()
 
-CMD_QUERY  = "query:"
-CMD_EXPORT = "export:"
+EXPORT_LEN = len("export")
 
 # TODO remove hard-coded values
 # Session based stuff, we can use Chrome dev tool to check the values that we may use
@@ -25,10 +26,8 @@ debug=False
 export_limit = 400
 
 
-def extract_sql(cmd: str) -> str:
-    if cmd.startswith(CMD_EXPORT): return cmd[len(CMD_EXPORT):].strip()
-    if cmd.startswith(CMD_QUERY): return cmd[len(CMD_QUERY):].strip()
-    return cmd
+def is_export(cmd: str) -> str:
+    return re.match("[Ee][Xx][Pp][Oo][Rr][Tt].*" , cmd)  # cmd is trimmed already 
 
 
 def launch_console():
@@ -67,7 +66,8 @@ def launch_console():
     util.ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
 
     # execute queries
-    print("Entering sql query interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
+    print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
+    print("Enter 'export [SQL]' to export excel files (csv/xlsx/xls)")
     ctx_id = 2
     while True: 
         try:
@@ -76,12 +76,16 @@ def launch_console():
             if cmd == "": continue
             ctx_id += 1
 
-            sql = extract_sql(cmd)
-            if sql == "": continue
-
             batch_export = False
-            if cmd.startswith(CMD_EXPORT): 
-                batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+            sql = cmd
+            export = is_export(cmd)
+            if export: 
+                sql: str = sql[EXPORT_LEN:].strip()
+                if sql == "": continue
+                if not util.query_has_limit(sql) :
+                    batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+
+            if debug: print(f"sql: '{sql}'")
 
             # TODO: this part of the code looks so stupid, but it kinda works, fix it later :D
             if batch_export:
@@ -96,7 +100,7 @@ def launch_console():
                     offset_sql = sql + f" limit {offset}, {export_limit}" 
                     print(offset_sql)
                     cols, rows = util.exec_query(ws, offset_sql, 
-                                    log_msg=False,
+                                    log_msg=debug,
                                     v_db_index=v_db_index, 
                                     v_context_code=ctx_id,
                                     v_conn_tab_id=v_conn_tab_id,
@@ -117,7 +121,7 @@ def launch_console():
                 print(f"Exported to '{outf}'")
             else:
                 cols, rows = util.exec_query(ws, sql, 
-                                log_msg=False,
+                                log_msg=debug,
                                 v_db_index=v_db_index, 
                                 v_context_code=ctx_id,
                                 v_conn_tab_id=v_conn_tab_id,
@@ -125,7 +129,7 @@ def launch_console():
                                 v_tab_db_id=v_tab_db_id)
 
                 # https://github.com/CurtisNewbie/excelparser
-                if cmd.startswith(CMD_EXPORT): 
+                if export: 
                     outf = input('Please specify where to export: ').strip()
                     if not outf: outf = "export.xlsx"
                     import excelparser
