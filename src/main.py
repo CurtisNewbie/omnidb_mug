@@ -116,7 +116,7 @@ def launch_console():
                                     v_conn_tab_id=v_conn_tab_id,
                                     v_tab_id=v_tab_id, 
                                     v_tab_db_id=v_tab_db_id)
-                    if not ok: continue 
+                    if not ok: break 
                     if offset < 1: acc_cols = cols
                     acc_rows += rows
                     if len(rows) < 1 or len(rows) < export_limit: break
@@ -141,7 +141,8 @@ def launch_console():
 
     # disconnect websocket
     ws.close()
-    print("Websocket disconnected")
+    if debug: print("Websocket disconnected")
+    print("bye!")
 
 
 if __name__ == "__main__":
