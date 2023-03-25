@@ -1,4 +1,5 @@
 import sys
+import unicodedata
 import requests
 import json
 import re
@@ -23,9 +24,9 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_PROTOCOL) -> "OSession":
+def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_PROTOCOL, debug = False) -> "OSession":
     url = protocol + host + '/sign_in/'
-    print(f"Trying to login, url: {url}")
+    if debug: print(f"Trying to login, url: {url}")
 
     resp: requests.Response = session.post(url, data={
         'data': json.dumps({'p_username': username, 'p_pwd': password})
@@ -48,7 +49,7 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
         raise ValueError(
             f"Login failed, unable to find omnidb_sessionid, make sure that you are not already signed-in in your browser, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
 
-    print(f"cookie: {sh.cookie}")
+    if debug: print(f"cookie: {sh.cookie}")
     return sh
 
 
@@ -77,21 +78,29 @@ def query_has_limit(sql: str) -> bool:
     return re.match(".* ?[Ll][Ii][Mm][Ii][Tt]", sql)
 
 
-def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]]:
+def colwidth(s: str) -> int:
+    l = 0
+    for i in range(len(s)): 
+        w = unicodedata.east_asian_width(s[i])
+        l += 2 if w in ['W', 'F', 'A'] else 1
+    return l
+
+
+def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[bool, list[str],list[list[str]]]:
     msg = f'{{"v_code":1,"v_context_code":{kw["v_context_code"]},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{kw["v_db_index"]},"v_conn_tab_id":"{kw["v_conn_tab_id"]}","v_tab_id":"{kw["v_tab_id"]}","v_tab_db_id":{kw["v_tab_db_id"]},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
     resp = ws_send_recv(ws, msg, kw["log_msg"], 2)
     j: dict = json.loads(resp[1])
     if j["v_error"]:
         errmsg = j["v_data"]["message"]
         print(f"Error: '{errmsg}'")
-        return [[], []]
+        return [False, [], []]
 
     col = j["v_data"]["v_col_names"]
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
      
     indent : dict[int][int] = {}
-    for i in range(len(col)): indent[i] = len(col[i])
+    for i in range(len(col)): indent[i] = colwidth(col[i])
     for r in rows: 
         for i in range(len(col)):
             cl = len(r[i])
@@ -100,14 +109,14 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]
     col_title = "| "
     col_sep = "|-"
     for i in range(len(col)): 
-        col_title += col[i] + spaces(indent[i] - len(col[i]) + 1) + " | "
+        col_title += col[i] + spaces(indent[i] - colwidth(col[i]) + 1) + " | "
         col_sep += sjoin(indent[i] + 1, "-") + "-|"
         if i < len(col) - 1: col_sep += "-"
     print(col_sep + "\n" + col_title + "\n" + col_sep)
 
     for r in rows:
         row_ctn = "| "
-        for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - len(r[i])) + " | "
+        for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - colwidth(r[i])) + " | "
         print(row_ctn)
     print(col_sep)
 
@@ -115,24 +124,24 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[list[str],list[list[str]]
     print(f"Total: {len(rows)}")
     print(f"Cost : {cost}")
     print()
-    return [col, rows]
+    return [True, col, rows]
 
 
-def ws_connect(sh: OSession, host: str, protocol: str = "wss://") -> WebSocket:
+def ws_connect(sh: OSession, host: str, protocol: str = "wss://", debug=False) -> WebSocket:
     url = protocol + host
     if not url.endswith("/"):
         url += "/"
     url += "wss"
-    print(f"Connecting to websocket server, url: {url}")
+    if debug: print(f"Connecting to websocket server, url: {url}")
     ws = create_connection(
         url, headers=["Upgrade: websocket"], cookie=sh.cookie)
-    print(f"Successfully connected to websocket server")
+    if debug: print(f"Successfully connected to websocket server")
     return ws
 
 
-def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database):
+def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database, debug = False):
     url = sh.protocol + sh.host + '/change_active_database/'
-    print(f"Changing active database, url: '{url}'")
+    if debug: print(f"Changing active database, url: '{url}'")
 
     resp: requests.Response = session.post(url, data={
         'data': json.dumps({'p_database_index': p_database_index, 'p_tab_id': p_tab_id, "p_database": p_database})

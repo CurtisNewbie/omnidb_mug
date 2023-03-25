@@ -26,7 +26,17 @@ debug=False
 export_limit = 400
 
 
-def is_export(cmd: str) -> str:
+def export(cols, rows, outf):
+    # https://github.com/CurtisNewbie/excelparser
+    import excelparser
+    ep = excelparser.ExcelParser(outf)   
+    ep.rows = rows
+    ep.cols = cols 
+    ep.export(outf)
+    print(f"Exported to '{outf}'")
+
+
+def is_export_cmd(cmd: str) -> str:
     return re.match("[Ee][Xx][Pp][Oo][Rr][Tt].*" , cmd)  # cmd is trimmed already 
 
 
@@ -54,13 +64,13 @@ def launch_console():
         sys.exit(0)
 
     # login
-    sh = util.login(csrf, host, uname, pw)
+    sh = util.login(csrf, host, uname, pw, debug=debug)
 
     # change active database
-    util.change_active_database(sh, v_db_index, v_conn_tab_id, "")
+    util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
 
     # connect websocket
-    ws = util.ws_connect(sh, host)
+    ws = util.ws_connect(sh, host, debug=debug)
 
     # first message
     util.ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
@@ -78,8 +88,8 @@ def launch_console():
 
             batch_export = False
             sql = cmd
-            export = is_export(cmd)
-            if export: 
+            do_export = is_export_cmd(cmd)
+            if do_export: 
                 sql: str = sql[EXPORT_LEN:].strip()
                 if sql == "": continue
                 if not util.query_has_limit(sql) :
@@ -89,7 +99,7 @@ def launch_console():
 
             # TODO: this part of the code looks so stupid, but it kinda works, fix it later :D
             if batch_export:
-                outf = input('Please specify where to export: ').strip()
+                outf = input('Please specify where to export (default to \'batch_export.xlsx\'): ').strip()
                 if not outf: outf = "batch_export.xlsx"
                 offset = 0  
                 acc_cols = []
@@ -99,45 +109,33 @@ def launch_console():
                     if sql.endswith(";"): sql = sql[:len(sql) - 1]
                     offset_sql = sql + f" limit {offset}, {export_limit}" 
                     print(offset_sql)
-                    cols, rows = util.exec_query(ws, offset_sql, 
+                    ok, cols, rows = util.exec_query(ws, offset_sql, 
                                     log_msg=debug,
                                     v_db_index=v_db_index, 
                                     v_context_code=ctx_id,
                                     v_conn_tab_id=v_conn_tab_id,
                                     v_tab_id=v_tab_id, 
                                     v_tab_db_id=v_tab_db_id)
-                
+                    if not ok: continue 
                     if offset < 1: acc_cols = cols
                     acc_rows += rows
                     if len(rows) < 1 or len(rows) < export_limit: break
                     offset += export_limit
 
-                # https://github.com/CurtisNewbie/excelparser
-                import excelparser
-                ep = excelparser.ExcelParser(outf)   
-                ep.rows = acc_rows
-                ep.cols = acc_cols 
-                ep.export(outf)
-                print(f"Exported to '{outf}'")
+                export(acc_rows, acc_cols, outf)
             else:
-                cols, rows = util.exec_query(ws, sql, 
+                ok, cols, rows = util.exec_query(ws, sql, 
                                 log_msg=debug,
                                 v_db_index=v_db_index, 
                                 v_context_code=ctx_id,
                                 v_conn_tab_id=v_conn_tab_id,
                                 v_tab_id=v_tab_id, 
                                 v_tab_db_id=v_tab_db_id)
-
-                # https://github.com/CurtisNewbie/excelparser
-                if export: 
-                    outf = input('Please specify where to export: ').strip()
+                if not ok: continue
+                if do_export: 
+                    outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
                     if not outf: outf = "export.xlsx"
-                    import excelparser
-                    ep = excelparser.ExcelParser(outf)   
-                    ep.rows = rows
-                    ep.cols = cols 
-                    ep.export(outf)
-                    print(f"Exported to '{outf}'")
+                    export(rows, cols, outf)
         except KeyboardInterrupt:
             print("\nEnter 'exit' to exit")
 
