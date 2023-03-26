@@ -5,7 +5,8 @@ import json
 import re
 from websocket import create_connection, WebSocket
 
-DEFAULT_PROTOCOL = "https://"
+DEFAULT_HTTP_PROTOCOL = "https://"
+DEFAULT_WS_PROTOCOL = "wss://"
 session = requests.Session() # reuse connection
 
 class OTab:
@@ -35,7 +36,7 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-def get_csrf_token(host: str, protocol: str = DEFAULT_PROTOCOL, debug = False) -> str:
+def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> str:
     url = protocol + host + "/"
     if debug: print(f"Trying to get csrf token, url: {url}")
     resp: requests.Response = session.get(url)
@@ -53,7 +54,7 @@ def parse_set_cookie(header: str, key: str) -> str:
     return None
 
 
-def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_PROTOCOL, debug = False) -> "OSession":
+def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> "OSession":
     url = protocol + host + '/sign_in/'
     if debug: print(f"Trying to login, url: {url}")
 
@@ -162,7 +163,7 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[bool, list[str],list[list
     return [True, col, rows]
 
 
-def ws_connect(sh: OSession, host: str, protocol: str = "wss://", debug=False) -> WebSocket:
+def ws_connect(sh: OSession, host: str, protocol: str = DEFAULT_WS_PROTOCOL, debug=False) -> WebSocket:
     url = protocol + host
     if not url.endswith("/"):
         url += "/"

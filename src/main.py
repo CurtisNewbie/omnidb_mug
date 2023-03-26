@@ -3,6 +3,7 @@ import getpass
 import os
 import re
 import readline # don't remove this, this is for input()
+import time
 
 EXPORT_LEN = len("export")
 
@@ -10,16 +11,26 @@ EXPORT_LEN = len("export")
 v_tab_id="conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
-# Credentials, Host
-# environment variable: OMNIDB_MUG_HOST
-# environment variable: OMNIDB_MUG_USER
+# username, env: OMNIDB_MUG_USER
 uname = ''
+
+# http protocol
+http_protocol = util.DEFAULT_HTTP_PROTOCOL 
+
+# websocket protocol
+ws_protocol = util.DEFAULT_WS_PROTOCOL 
+
+# host (without protocol), env: OMNIDB_MUG_HOST
 host = ''
 
-# configuration
-# environment variable: OMNIDB_MUG_DEBUG
+# debug mode, env: OMNIDB_MUG_DEBUG
 debug = False       
-export_limit = 400  
+
+# page limit of batch export
+batch_export_limit = 400  
+
+# sleep time in ms for each batch export
+batch_export_throttle_ms = 200
 
 
 def export(cols, rows, outf):
@@ -37,7 +48,7 @@ def is_export_cmd(cmd: str) -> str:
 
 
 def launch_console():
-    global debug, v_tab_id, v_conn_tab_id, uname, host, export_limit
+    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol
 
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
 
@@ -50,13 +61,13 @@ def launch_console():
     if not uname: util.sys_exit(0, "Username is required")
 
     # retrieve csrf token first by request '/' path
-    csrf = util.get_csrf_token(host, debug=debug)
+    csrf = util.get_csrf_token(host, protocol=http_protocol, debug=debug)
 
     pw = getpass.getpass(f"Enter Password for '{uname}':").strip()
     if not pw: util.sys_exit(0, "Password is required")
 
     # login
-    sh = util.login(csrf, host, uname, pw, debug=debug)
+    sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
 
     # list database, pick one to use
     db = util.get_database_list(sh, debug=debug)
@@ -81,7 +92,7 @@ def launch_console():
     util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
 
     # connect websocket
-    ws = util.ws_connect(sh, host, debug=debug)
+    ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
 
     # first message
     util.ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
@@ -118,7 +129,7 @@ def launch_console():
 
                 while True: 
                     if sql.endswith(";"): sql = sql[:len(sql) - 1]
-                    offset_sql = sql + f" limit {offset}, {export_limit}" 
+                    offset_sql = sql + f" limit {offset}, {batch_export_limit}" 
                     print(offset_sql)
                     ok, cols, rows = util.exec_query(ws, offset_sql, 
                                     log_msg=debug,
@@ -130,8 +141,9 @@ def launch_console():
                     if not ok: break 
                     if offset < 1: acc_cols = cols
                     acc_rows += rows
-                    if len(rows) < 1 or len(rows) < export_limit: break
-                    offset += export_limit
+                    if len(rows) < 1 or len(rows) < batch_export_limit: break
+                    offset += batch_export_limit
+                    if batch_export_throttle_ms > 0: time.sleep(batch_export_throttle_ms / 1000)
 
                 export(acc_rows, acc_cols, outf)
             else:
