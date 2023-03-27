@@ -34,9 +34,10 @@ batch_export_limit = 400
 batch_export_throttle_ms = 200
 
 
-def env_print(key, value, min_width = 40):
+def env_print(key, value):
     prop = key + ":"
     print(f"{prop:40}{value}")
+
 
 def is_exit(cmd: str) -> bool:
     return cmd == 'quit()' or cmd == 'quit' or cmd == 'exit'
