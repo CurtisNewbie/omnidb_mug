@@ -42,7 +42,7 @@ def is_exit(cmd: str) -> bool:
     return cmd == 'quit()' or cmd == 'quit' or cmd == 'exit'
 
 
-def export(cols, rows, outf):
+def export(rows, cols, outf):
     # https://github.com/CurtisNewbie/excelparser
     import excelparser
     ep = excelparser.ExcelParser(outf)   
