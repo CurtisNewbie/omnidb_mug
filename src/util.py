@@ -46,6 +46,11 @@ def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = Fal
     return csrf
 
 
+def close_ws(ws: WebSocket, debug = False):
+    if ws: ws.close()
+    if debug: print("Websocket disconnected")
+
+
 def parse_set_cookie(header: str, key: str) -> str:
     for v in header.split(';'):
         kv = v.strip().split('=')
@@ -172,6 +177,9 @@ def ws_connect(sh: OSession, host: str, protocol: str = DEFAULT_WS_PROTOCOL, deb
     ws = create_connection(
         url, headers=["Upgrade: websocket"], cookie=sh.cookie)
     if debug: print(f"Successfully connected to websocket server")
+
+    # first message
+    ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
     return ws
 
 

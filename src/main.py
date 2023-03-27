@@ -4,6 +4,7 @@ import os
 import re
 import readline # don't remove this, this is for input()
 import time
+from websocket import WebSocket
 
 EXPORT_LEN = len("export")
 
@@ -33,6 +34,14 @@ batch_export_limit = 400
 batch_export_throttle_ms = 200
 
 
+def env_print(key, value, min_width = 40):
+    prop = key + ":"
+    print(f"{prop:40}{value}")
+
+def is_exit(cmd: str) -> bool:
+    return cmd == 'quit()' or cmd == 'quit' or cmd == 'exit'
+
+
 def export(cols, rows, outf):
     # https://github.com/CurtisNewbie/excelparser
     import excelparser
@@ -49,62 +58,70 @@ def is_export_cmd(cmd: str) -> str:
 
 def launch_console():
     global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol
+    ws: WebSocket = None
 
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
+    env_print("Using HTTP Protocol", http_protocol)
+    env_print("Using WebSocket Protocol", ws_protocol)
+    
+    try:
+        if not host: host = os.getenv('OMNIDB_MUG_HOST')
+        while not host: input("Enter host of Omnidb: ")
+        env_print("Using Host", host)
 
-    if not host: host = os.getenv('OMNIDB_MUG_HOST')
-    if not host: input("Enter host of Omnidb: ")
-    if not host: util.sys_exit(0, "Host of Omnidb is required")
+        if not uname: uname = os.getenv('OMNIDB_MUG_USER')
+        while not uname: uname = input("Enter Username: ")
+        env_print("Using Username", uname)
+        print()
 
-    if not uname: uname = os.getenv('OMNIDB_MUG_USER')
-    if not uname: uname = input("Enter Username: ")
-    if not uname: util.sys_exit(0, "Username is required")
+        # retrieve csrf token first by request '/' path
+        csrf = util.get_csrf_token(host, protocol=http_protocol, debug=debug)
 
-    # retrieve csrf token first by request '/' path
-    csrf = util.get_csrf_token(host, protocol=http_protocol, debug=debug)
+        pw = ""
+        while not pw: pw = getpass.getpass(f"Enter Password for '{uname}': ").strip()
 
-    pw = getpass.getpass(f"Enter Password for '{uname}':").strip()
-    if not pw: util.sys_exit(0, "Password is required")
+        # login
+        sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
 
-    # login
-    sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
+        # list database, pick one to use
+        db = util.get_database_list(sh, debug=debug)
+        v_tab_db_id = db.tabs[0].tab_db_id 
+        v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
 
-    # list database, pick one to use
-    db = util.get_database_list(sh, debug=debug)
-    v_tab_db_id = db.tabs[0].tab_db_id 
-    v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
+        print("Available database connections:")
+        prev_selected = 0
+        for i in range(len(db.connections)): 
+            if db.connections[i].v_conn_id  == v_db_index: 
+                prev_selected = i
+                print(f"* [{i}] '{db.connections[i].v_alias}'")
+            else: print(f"  [{i}] '{db.connections[i].v_alias}'")
 
-    print("Available database connections:")
-    prev_selected = 0
-    for i in range(len(db.connections)): 
-        if db.connections[i].v_conn_id  == v_db_index: 
-            prev_selected = i
-            print(f"* [{i}] '{db.connections[i].v_alias}'")
-        else: print(f"  [{i}] '{db.connections[i].v_alias}'")
+        resp = input(f"\nPlease select database connections: ").strip().lower()
+        if not resp: resp = prev_selected  # default db connection
+        selected_conn = db.connections[int(resp)]
+        
+        # change active database
+        v_db_index = selected_conn.v_conn_id
+        util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
+        print(f'Selected database \'{selected_conn.v_alias}\'')
 
-    selected_db = input("Please select database: ") 
-    if not selected_db: selected_db = prev_selected 
-    selected_db = int(selected_db)
-    v_db_index = db.connections[selected_db].v_conn_id
-    print(f'Selected database \'{db.connections[selected_db].v_alias}\'')
+        # connect websocket
+        ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
 
-    # change active database
-    util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
-
-    # connect websocket
-    ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
-
-    # first message
-    util.ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
+    except KeyboardInterrupt:
+        util.close_ws(ws=ws, debug=debug)
+        print("\nBye!")
+        return
 
     # execute queries
+    print()
     print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
     print("Enter 'export [SQL]' to export excel files (csv/xlsx/xls)")
     ctx_id = 2
     while True: 
         try:
             cmd = input("> ").strip().lower()
-            if cmd == 'quit()' or cmd == 'quit' or cmd == 'exit': break
+            if is_exit(cmd): break
             if cmd == "": continue
             ctx_id += 1
 
@@ -163,8 +180,7 @@ def launch_console():
             print()
 
     # disconnect websocket
-    ws.close()
-    if debug: print("Websocket disconnected")
+    util.close_ws(ws)
     print("Bye!")
 
 
