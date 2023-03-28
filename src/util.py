@@ -140,13 +140,13 @@ def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[bool, list[str],list[list
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
      
-    # max length among the rows
-    indent : dict[int][int] = {}
-    for i in range(len(col)): indent[i] = str_width(col[i])
-    for r in rows: 
-        for i in range(len(col)): indent[i] = max(indent[i], len(r[i]))
-
     if len(col) > 0:
+        # max length among the rows
+        indent : dict[int][int] = {}
+        for i in range(len(col)): indent[i] = str_width(col[i])
+        for r in rows: 
+            for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
+
         print()
         col_title = "| "
         col_sep = "|-"
