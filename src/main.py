@@ -33,6 +33,63 @@ batch_export_limit = 400
 # sleep time in ms for each batch export
 batch_export_throttle_ms = 200
 
+use_database: str = ""
+
+use_db_sql_pat =  re.compile("[Uu][Ss][Ee] *([0-9a-zA-Z_]*) *;?") 
+def parse_use_db(sql: str) -> bool:
+    global use_database 
+    m = use_db_sql_pat.match(sql)
+    if m: 
+        use_database = m.group(1).strip()
+        print(f"Using databse: '{use_database}'")
+        return True
+    return False
+
+slt_sql_pat =  re.compile("[Ss][Ee][Ll][Ee][Cc][Tt].*") 
+def is_select(sql: str) -> bool:
+    return slt_sql_pat.match(sql)
+
+
+slt_sql_pat = re.compile("[Ss][Ee][Ll][Ee][Cc][Tt] *.* *[Ff][Rr][Oo][Mm] *(.?[0-9a-zA-Z_]+).*") 
+show_tb_pat = re.compile("[Ss][Hh][Oo][Ww] *[Tt][Aa][Bb][Ll][Ee][Ss] *;?$") 
+desc_tb_pat = re.compile("[Dd][Ee][Ss][Cc] *(.?[0-9a-zA-Z_]+) *;?$") 
+def complete_database(sql: str, database: str) -> tuple[bool, str]:
+    if not database: return False, sql
+    sql = sql.strip()
+
+    completed = False
+    m = slt_sql_pat.match(sql)
+    if m: 
+        open, close = m.span(1)
+        sql = insert_db_name(sql, database, open, close) 
+        completed = True
+
+    if not completed:
+        m = show_tb_pat.match(sql)
+        if m:
+            sql +=  f" in {database}"
+            completed = True
+
+    if not completed:
+        m = desc_tb_pat.match(sql)
+        if m:
+            open, close = m.span(1)
+            sql = insert_db_name(sql, database, open, close) 
+            completed = True
+
+    if completed: print(f"Auto-completed: '{sql}'")
+    return completed, sql
+
+
+def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
+    table = sql[open:close]
+    table = table.strip()
+    l = table.find(".")
+    if l < 0: table = "." + table
+    table = database + table 
+    sql = sql[: open] + table + sql[close:]
+    return sql
+
 
 def env_print(key, value):
     prop = key + ":"
@@ -58,7 +115,7 @@ def is_export_cmd(cmd: str) -> str:
 
 
 def launch_console():
-    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol
+    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol, use_database
     ws: WebSocket = None
 
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
@@ -121,13 +178,14 @@ def launch_console():
     ctx_id = 2
     while True: 
         try:
-            cmd = input("> ").strip().lower()
+            cmd = input(f"({use_database}) > " if use_database else "> ").strip().lower()
             if is_exit(cmd): break
             if cmd == "": continue
             ctx_id += 1
 
             batch_export = False
             sql = cmd
+            
             do_export = is_export_cmd(cmd)
             if do_export: 
                 sql: str = sql[EXPORT_LEN:].strip()
@@ -136,6 +194,11 @@ def launch_console():
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
 
             if debug: print(f"sql: '{sql}'")
+            autocomp, sql = complete_database(sql, use_database)
+            if not autocomp: 
+                if parse_use_db(sql): continue
+
+            if debug: print(f"preprocessed sql: '{sql}'")
 
             # TODO: this part of the code looks so stupid, but it kinda works, fix it later :D
             if batch_export:
