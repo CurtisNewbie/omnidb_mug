@@ -7,9 +7,10 @@ import time
 from websocket import WebSocket
 
 EXPORT_LEN = len("export")
+CHANGE_INSTANCE = "change instance"
 
 # TODO these doesn't seem to be important :D
-v_tab_id="conn_tabs_tab4_tabs_tab1"
+v_tab_id = "conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
 # username, env: OMNIDB_MUG_USER
@@ -34,6 +35,35 @@ batch_export_limit = 400
 batch_export_throttle_ms = 200
 
 use_database: str = ""
+
+
+def select_instance(sh: util.OSession, select_first = False, debug = False) -> tuple[str, str]:
+    # list database, pick one to use
+    db = util.get_database_list(sh, debug=debug)
+    v_tab_db_id = db.tabs[0].tab_db_id 
+    v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
+
+    print("Available database connections:")
+    prev_selected = 0
+    for i in range(len(db.connections)): 
+        if db.connections[i].v_conn_id  == v_db_index: 
+            prev_selected = i
+            print(f"* [{i}] '{db.connections[i].v_alias}'")
+        else: print(f"  [{i}] '{db.connections[i].v_alias}'")
+
+    if select_first: resp = prev_selected
+    else:
+        resp = input(f"\nPlease select database connections: ").strip().lower()
+        if not resp: resp = prev_selected  # default db connection
+
+    selected_conn = db.connections[int(resp)]
+    
+    # change active database
+    v_db_index = selected_conn.v_conn_id
+    util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
+    print(f'Selected database \'{selected_conn.v_alias}\'')
+    return v_tab_db_id, v_db_index
+
 
 use_db_sql_pat =  re.compile("[Uu][Ss][Ee] *([0-9a-zA-Z_]*) *;?") 
 def parse_use_db(sql: str) -> bool:
@@ -110,8 +140,14 @@ def export(rows, cols, outf):
     print(f"Exported to '{outf}'")
 
 
+chg_inst_pat = re.compile("[Cc][Hh][Aa][Nn][Gg][Ee] +[Ii][Nn][Ss][Tt][Aa][Nn][Cc][Ee] *")
+def is_change_instance(cmd: str) -> str:
+    return chg_inst_pat.match(cmd)  # cmd is trimmed already 
+
+
+exp_cmd_pat = re.compile("[Ee][Xx][Pp][Oo][Rr][Tt].*")
 def is_export_cmd(cmd: str) -> str:
-    return re.match("[Ee][Xx][Pp][Oo][Rr][Tt].*" , cmd)  # cmd is trimmed already 
+    return exp_cmd_pat.match(cmd)  # cmd is trimmed already 
 
 
 def launch_console():
@@ -142,26 +178,7 @@ def launch_console():
         sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
 
         # list database, pick one to use
-        db = util.get_database_list(sh, debug=debug)
-        v_tab_db_id = db.tabs[0].tab_db_id 
-        v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
-
-        print("Available database connections:")
-        prev_selected = 0
-        for i in range(len(db.connections)): 
-            if db.connections[i].v_conn_id  == v_db_index: 
-                prev_selected = i
-                print(f"* [{i}] '{db.connections[i].v_alias}'")
-            else: print(f"  [{i}] '{db.connections[i].v_alias}'")
-
-        resp = input(f"\nPlease select database connections: ").strip().lower()
-        if not resp: resp = prev_selected  # default db connection
-        selected_conn = db.connections[int(resp)]
-        
-        # change active database
-        v_db_index = selected_conn.v_conn_id
-        util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
-        print(f'Selected database \'{selected_conn.v_alias}\'')
+        v_tab_db_id, v_db_index = select_instance(sh, select_first=True, debug=debug) 
 
         # connect websocket
         ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
@@ -175,6 +192,8 @@ def launch_console():
     print()
     print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
     print("Enter 'export [SQL]' to export excel files (csv/xlsx/xls)")
+    print("Enter 'change instance' to change the connected instance")
+    print()
     ctx_id = 2
     while True: 
         try:
@@ -192,6 +211,11 @@ def launch_console():
                 if sql == "": continue
                 if not util.query_has_limit(sql):
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+            
+            if is_change_instance(cmd):
+                # list database, pick one to use
+                v_tab_db_id, v_db_index = select_instance(sh, debug=debug) 
+                continue
 
             if debug: print(f"sql: '{sql}'")
             autocomp, sql = complete_database(sql, use_database)
