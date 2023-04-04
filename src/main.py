@@ -5,6 +5,7 @@ import re
 import readline # don't remove this, this is for input()
 import time
 from websocket import WebSocket
+import time
 
 EXPORT_LEN = len("export")
 CHANGE_INSTANCE = "change instance"
@@ -80,10 +81,12 @@ def is_select(sql: str) -> bool:
     return slt_sql_pat.match(sql)
 
 
-slt_sql_pat = re.compile("[Ss][Ee][Ll][Ee][Cc][Tt] *.* *[Ff][Rr][Oo][Mm] *(\.?[0-9a-zA-Z_]+) +.*") 
-show_tb_pat = re.compile("[Ss][Hh][Oo][Ww] *[Tt][Aa][Bb][Ll][Ee][Ss] *;?$") 
-desc_tb_pat = re.compile("[Dd][Ee][Ss][Cc] *(.?[0-9a-zA-Z_]+) *;?$") 
+slt_sql_pat = re.compile("^select *[0-9a-zA-Z_\*]* *from *(\.?\w+)( *| \w+ ?.*)$", re.IGNORECASE) 
+show_tb_pat = re.compile("^show *tables( *);? *$", re.IGNORECASE) 
+desc_tb_pat = re.compile("^desc *(.?[0-9a-zA-Z_]+) *;?$", re.IGNORECASE) 
 def complete_database(sql: str, database: str) -> tuple[bool, str]:
+    start = time.monotonic_ns()
+    
     if not database: return False, sql
     sql = sql.strip()
 
@@ -97,23 +100,23 @@ def complete_database(sql: str, database: str) -> tuple[bool, str]:
     if not completed:
         m = show_tb_pat.match(sql)
         if m:
-            sql +=  f" in {database}"
+            open, close = m.span(1)
+            sql = sql[: open] + f" in {database}" + sql[close:]
             completed = True
 
     if not completed:
         m = desc_tb_pat.match(sql)
         if m:
-            open, close = m.span(1)
+            open, close = m.span(2)
             sql = insert_db_name(sql, database, open, close) 
             completed = True
 
-    if completed: print(f"Auto-completed: '{sql}'")
+    if completed: print(f"Auto-completed: {sql}, cost: {(time.monotonic_ns() - start) / 1000}ms")
     return completed, sql
 
 
 def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
-    table = sql[open:close]
-    table = table.strip()
+    table = sql[open:close].strip()
     l = table.find(".")
     if l < 0: table = "." + table
     table = database + table 
