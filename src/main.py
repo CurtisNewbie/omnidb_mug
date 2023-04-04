@@ -80,7 +80,7 @@ def is_select(sql: str) -> bool:
     return slt_sql_pat.match(sql)
 
 
-slt_sql_pat = re.compile("[Ss][Ee][Ll][Ee][Cc][Tt] *.* *[Ff][Rr][Oo][Mm] *(.?[0-9a-zA-Z_]+).*") 
+slt_sql_pat = re.compile("[Ss][Ee][Ll][Ee][Cc][Tt] *.* *[Ff][Rr][Oo][Mm] *(\.?[0-9a-zA-Z_]+) +.*") 
 show_tb_pat = re.compile("[Ss][Hh][Oo][Ww] *[Tt][Aa][Bb][Ll][Ee][Ss] *;?$") 
 desc_tb_pat = re.compile("[Dd][Ee][Ss][Cc] *(.?[0-9a-zA-Z_]+) *;?$") 
 def complete_database(sql: str, database: str) -> tuple[bool, str]:
