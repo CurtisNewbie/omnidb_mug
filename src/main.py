@@ -111,7 +111,7 @@ def complete_database(sql: str, database: str) -> tuple[bool, str]:
             sql = insert_db_name(sql, database, open, close) 
             completed = True
 
-    if completed: print(f"Auto-completed: {sql}, cost: {(time.monotonic_ns() - start) / 1000}ms")
+    if completed: print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000}ms): {sql}")
     return completed, sql
 
 
