@@ -80,59 +80,6 @@ def parse_use_db(sql: str) -> bool:
     return False
 
 
-slt_sql_pat = re.compile(r"^select +[0-9a-zA-Z_\*]* *from *(\.?\w+)(?: *| \w+ ?.*)$", re.IGNORECASE) 
-show_tb_pat = re.compile(r"^show +tables( *)(| +like [\w\'\"%]+);? *$", re.IGNORECASE) 
-desc_tb_pat = re.compile(r"^desc +(.?[0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
-def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
-    start = time.monotonic_ns()
-    
-    if not database: return False, sql
-    sql = sql.strip()
-
-    completed = False
-    m = slt_sql_pat.match(sql)
-    if m: 
-        open, close = m.span(1)
-        sql = insert_db_name(sql, database, open, close) 
-        completed = True
-
-    if not completed:
-        m = show_tb_pat.match(sql)
-        if m:
-            open, close = m.span(1)
-            sql = sql[: open] + f" in {database}" + sql[close:]
-            completed = True
-
-    if not completed:
-        m = desc_tb_pat.match(sql)
-        if m:
-            open, close = m.span(1)
-            sql = insert_db_name(sql, database, open, close) 
-            completed = True
-
-    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000:.2f}ms): {sql}")
-    return completed, sql
-
-
-def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
-    table = sql[open:close].strip()
-    l = table.find(".")
-    if l < 0: table = "." + table
-    table = database + table 
-    sql = sql[: open] + table + sql[close:]
-    return sql
-
-
-def env_print(key, value):
-    prop = key + ":"
-    print(f"{prop:40}{value}")
-
-
-exit_pat = re.compile(r"^(quit|exit)(|\(\))$", re.IGNORECASE)
-def is_exit(cmd: str) -> bool:
-    return exit_pat.match(cmd) 
-
-
 def export(rows, cols, outf):
     # https://github.com/CurtisNewbie/excelparser
     import excelparser
@@ -158,8 +105,8 @@ def launch_console():
     ws: WebSocket = None
 
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
-    env_print("Using HTTP Protocol", http_protocol)
-    env_print("Using WebSocket Protocol", ws_protocol)
+    util.env_print("Using HTTP Protocol", http_protocol)
+    util.env_print("Using WebSocket Protocol", ws_protocol)
 
     qry_ctx = util.QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
@@ -168,11 +115,11 @@ def launch_console():
     try:
         if not host: host = os.getenv('OMNIDB_MUG_HOST')
         while not host: input("Enter host of Omnidb: ")
-        env_print("Using Host", host)
+        util.env_print("Using Host", host)
 
         if not uname: uname = os.getenv('OMNIDB_MUG_USER')
         while not uname: uname = input("Enter Username: ")
-        env_print("Using Username", uname)
+        util.env_print("Using Username", uname)
         print()
 
         # retrieve csrf token first by request '/' path
@@ -207,7 +154,7 @@ def launch_console():
         try:
             cmd = input(f"({use_database}) > " if use_database else "> ").strip()
             if cmd == "": continue
-            if is_exit(cmd): break
+            if util.is_exit(cmd): break
 
             qry_ctx.v_context_code += 1
             batch_export = False
@@ -225,7 +172,7 @@ def launch_console():
                 continue
 
             if debug: print(f"sql: '{sql}'")
-            auto_comp_db, sql = auto_complete_db(sql, use_database)
+            auto_comp_db, sql = util.auto_complete_db(sql, use_database)
             if not auto_comp_db and parse_use_db(sql): continue
 
             if debug: print(f"preprocessed sql: '{sql}'")

@@ -1,4 +1,5 @@
 import sys
+import time
 import unicodedata
 import requests
 import json
@@ -34,6 +35,72 @@ class OSession:
 
         self.sessionid = parse_set_cookie(set_cookie, 'omnidb_sessionid')
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
+
+
+slt_sql_pat = re.compile(r"^select +[0-9a-zA-Z_\*]* *from *(\.?[`0-9a-zA-Z_]+)(?: *| [`0-9a-zA-Z_]+ ?.*)$", re.IGNORECASE) 
+show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [\w\'\"`%]+) *;? *$", re.IGNORECASE) 
+show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
+desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
+def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
+    start = time.monotonic_ns()
+    
+    if not database: return False, sql
+    sql = sql.strip()
+
+    completed = False
+    m = slt_sql_pat.match(sql)
+    if m: 
+        open, close = m.span(1)
+        sql = insert_db_name(sql, database, open, close) 
+        completed = True
+
+    if not completed:
+        m = show_tb_pat.match(sql)
+        if m:
+            open, close = m.span(1)
+            sql = sql[: open] + f" in {database}" + sql[close:]
+            completed = True
+
+    if not completed:
+        m = show_crt_tb_pat.match(sql)
+        if m:
+            open, close = m.span(1)
+            sql = insert_db_name(sql, database, open, close) 
+            completed = True
+
+    if not completed:
+        m = desc_tb_pat.match(sql)
+        if m:
+            open, close = m.span(1)
+            sql = insert_db_name(sql, database, open, close) 
+            completed = True
+
+    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000:.2f}ms): {sql}")
+    return completed, sql
+
+
+def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
+    table = sql[open:close].strip()
+    l = table.find(".")
+    if l < 0: table = "." + table
+    table = database + table 
+    sql = sql[: open] + table + sql[close:]
+    return sql
+
+
+is_show_crt_tb_pat = re.compile(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", re.IGNORECASE) 
+def is_show_create_table(sql: str) -> bool:
+    return is_show_crt_tb_pat.match(sql)
+
+
+exit_pat = re.compile(r"^(?:quit|exit)(?:|\(\))$", re.IGNORECASE)
+def is_exit(cmd: str) -> bool:
+    return exit_pat.match(cmd) 
+
+
+def env_print(key, value):
+    prop = key + ":"
+    print(f"{prop:40}{value}")
 
 
 def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> str:
@@ -151,26 +218,29 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tupl
     cost = j["v_data"]["v_duration"]
      
     if len(col) > 0:
-        # max length among the rows
-        indent : dict[int][int] = {}
-        for i in range(len(col)): indent[i] = str_width(col[i])
-        for r in rows: 
-            for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
+        if is_show_create_table(sql):
+            print("\n" + rows[0][1])
+        else: 
+            # max length among the rows
+            indent : dict[int][int] = {}
+            for i in range(len(col)): indent[i] = str_width(col[i])
+            for r in rows: 
+                for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
 
-        print()
-        col_title = "| "
-        col_sep = "|-"
-        for i in range(len(col)): 
-            col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
-            col_sep += sjoin(indent[i] + 1, "-") + "-|"
-            if i < len(col) - 1: col_sep += "-"
-        print(col_sep + "\n" + col_title + "\n" + col_sep)
+            print()
+            col_title = "| "
+            col_sep = "|-"
+            for i in range(len(col)): 
+                col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
+                col_sep += sjoin(indent[i] + 1, "-") + "-|"
+                if i < len(col) - 1: col_sep += "-"
+            print(col_sep + "\n" + col_title + "\n" + col_sep)
 
-        for r in rows:
-            row_ctn = "| "
-            for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
-            print(row_ctn)
-        print(col_sep)
+            for r in rows:
+                row_ctn = "| "
+                for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
+                print(row_ctn)
+            print(col_sep)
     print()
     print(f"Total: {len(rows)}")
     print(f"Cost : {cost}")
