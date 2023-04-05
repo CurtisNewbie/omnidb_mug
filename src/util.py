@@ -122,10 +122,20 @@ def str_width(s: str) -> int:
         l += 2 if w in ['W', 'F', 'A'] else 1
     return l
 
+class QueryContext:
 
-def exec_query(ws: WebSocket, sql: str, **kw) -> tuple[bool, list[str],list[list[str]]]:
-    msg = f'{{"v_code":1,"v_context_code":{kw["v_context_code"]},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{kw["v_db_index"]},"v_conn_tab_id":"{kw["v_conn_tab_id"]}","v_tab_id":"{kw["v_tab_id"]}","v_tab_db_id":{kw["v_tab_db_id"]},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
-    resp = ws_send_recv(ws, msg, kw["log_msg"], 2)
+    def __init__(self):
+        self.v_db_index = ""
+        self.v_context_code = "" 
+        self.v_conn_tab_id = "" 
+        self.v_tab_id = ""
+        self.v_tab_db_id = "" 
+
+
+def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tuple[bool, list[str],list[list[str]]]:
+    msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
+
+    resp = ws_send_recv(ws, msg, debug, 2)
     j: dict = json.loads(resp[1])
     if j["v_error"]:
         errmsg = j["v_data"]["message"]

@@ -38,8 +38,8 @@ batch_export_throttle_ms = 200
 use_database: str = ""
 
 
-def select_instance(sh: util.OSession, select_first = False, debug = False) -> tuple[str, str]:
-    # list database, pick one to use
+def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False, debug = False) -> util.QueryContext:
+    # list database instance, pick one to use
     db = util.get_database_list(sh, debug=debug)
     v_tab_db_id = db.tabs[0].tab_db_id 
     v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
@@ -63,10 +63,13 @@ def select_instance(sh: util.OSession, select_first = False, debug = False) -> t
     v_db_index = selected_conn.v_conn_id
     util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
     print(f'Selected database \'{selected_conn.v_alias}\'')
-    return v_tab_db_id, v_db_index
+
+    qc.v_tab_db_id = v_tab_db_id
+    qc.v_db_index = v_db_index
+    return qc 
 
 
-use_db_sql_pat =  re.compile("[Uu][Ss][Ee] *([0-9a-zA-Z_]*) *;?") 
+use_db_sql_pat =  re.compile(r"^use *([0-9a-zA-Z_]*) *;?$", re.IGNORECASE) 
 def parse_use_db(sql: str) -> bool:
     global use_database 
     m = use_db_sql_pat.match(sql)
@@ -76,15 +79,11 @@ def parse_use_db(sql: str) -> bool:
         return True
     return False
 
-slt_sql_pat =  re.compile("[Ss][Ee][Ll][Ee][Cc][Tt].*") 
-def is_select(sql: str) -> bool:
-    return slt_sql_pat.match(sql)
 
-
-slt_sql_pat = re.compile("^select *[0-9a-zA-Z_\*]* *from *(\.?\w+)( *| \w+ ?.*)$", re.IGNORECASE) 
-show_tb_pat = re.compile("^show *tables( *);? *$", re.IGNORECASE) 
-desc_tb_pat = re.compile("^desc *(.?[0-9a-zA-Z_]+) *;?$", re.IGNORECASE) 
-def complete_database(sql: str, database: str) -> tuple[bool, str]:
+slt_sql_pat = re.compile(r"^select +[0-9a-zA-Z_\*]* *from *(\.?\w+)(?: *| \w+ ?.*)$", re.IGNORECASE) 
+show_tb_pat = re.compile(r"^show +tables( *)(| +like [\w\'\"%]+);? *$", re.IGNORECASE) 
+desc_tb_pat = re.compile(r"^desc +(.?[0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
+def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
     start = time.monotonic_ns()
     
     if not database: return False, sql
@@ -107,11 +106,11 @@ def complete_database(sql: str, database: str) -> tuple[bool, str]:
     if not completed:
         m = desc_tb_pat.match(sql)
         if m:
-            open, close = m.span(2)
+            open, close = m.span(1)
             sql = insert_db_name(sql, database, open, close) 
             completed = True
 
-    if completed: print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000}ms): {sql}")
+    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000:.2f}ms): {sql}")
     return completed, sql
 
 
@@ -129,8 +128,9 @@ def env_print(key, value):
     print(f"{prop:40}{value}")
 
 
+exit_pat = re.compile(r"^(quit|exit)(|\(\))$", re.IGNORECASE)
 def is_exit(cmd: str) -> bool:
-    return cmd == 'quit()' or cmd == 'quit' or cmd == 'exit'
+    return exit_pat.match(cmd) 
 
 
 def export(rows, cols, outf):
@@ -160,6 +160,10 @@ def launch_console():
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
+
+    qry_ctx = util.QueryContext()
+    qry_ctx.v_conn_tab_id = v_conn_tab_id
+    qry_ctx.v_tab_id = v_tab_id
     
     try:
         if not host: host = os.getenv('OMNIDB_MUG_HOST')
@@ -181,7 +185,7 @@ def launch_console():
         sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
 
         # list database, pick one to use
-        v_tab_db_id, v_db_index = select_instance(sh, select_first=True, debug=debug) 
+        qry_ctx = select_instance(sh, qry_ctx, select_first=True, debug=debug) 
 
         # connect websocket
         ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
@@ -197,14 +201,15 @@ def launch_console():
     print("Enter 'export [SQL]' to export excel files (csv/xlsx/xls)")
     print("Enter 'change instance' to change the connected instance")
     print()
-    ctx_id = 2
+
+    qry_ctx.v_context_code = 2 # start with two, when we connect websocket, we always send the first msg to server right away
     while True: 
         try:
-            cmd = input(f"({use_database}) > " if use_database else "> ").strip().lower()
-            if is_exit(cmd): break
+            cmd = input(f"({use_database}) > " if use_database else "> ").strip()
             if cmd == "": continue
-            ctx_id += 1
+            if is_exit(cmd): break
 
+            qry_ctx.v_context_code += 1
             batch_export = False
             sql = cmd
             
@@ -216,52 +221,41 @@ def launch_console():
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
             
             if is_change_instance(cmd):
-                # list database, pick one to use
-                v_tab_db_id, v_db_index = select_instance(sh, debug=debug) 
+                qry_ctx = select_instance(sh, debug=debug) 
                 continue
 
             if debug: print(f"sql: '{sql}'")
-            autocomp, sql = complete_database(sql, use_database)
-            if not autocomp: 
-                if parse_use_db(sql): continue
+            auto_comp_db, sql = auto_complete_db(sql, use_database)
+            if not auto_comp_db and parse_use_db(sql): continue
 
             if debug: print(f"preprocessed sql: '{sql}'")
 
-            # TODO: this part of the code looks so stupid, but it kinda works, fix it later :D
             if batch_export:
                 outf = input('Please specify where to export (default to \'batch_export.xlsx\'): ').strip()
                 if not outf: outf = "batch_export.xlsx"
+
                 offset = 0  
                 acc_cols = []
                 acc_rows = []
 
                 while True: 
-                    if sql.endswith(";"): sql = sql[:len(sql) - 1]
+                    if sql.endswith(";"): sql = sql[:len(sql) - 1].strip()
                     offset_sql = sql + f" limit {offset}, {batch_export_limit}" 
                     print(offset_sql)
-                    ok, cols, rows = util.exec_query(ws, offset_sql, 
-                                    log_msg=debug,
-                                    v_db_index=v_db_index, 
-                                    v_context_code=ctx_id,
-                                    v_conn_tab_id=v_conn_tab_id,
-                                    v_tab_id=v_tab_id, 
-                                    v_tab_db_id=v_tab_db_id)
-                    if not ok: break 
-                    if offset < 1: acc_cols = cols
-                    acc_rows += rows
-                    if len(rows) < 1 or len(rows) < batch_export_limit: break
-                    offset += batch_export_limit
-                    if batch_export_throttle_ms > 0: time.sleep(batch_export_throttle_ms / 1000)
 
-                export(acc_rows, acc_cols, outf)
+                    ok, cols, rows = util.exec_query(ws, offset_sql, qry_ctx, debug)
+                    if not ok: break 
+                    if len(rows) < 1 or len(rows) < batch_export_limit: break # the end of pagination
+
+                    if offset < 1: acc_cols = cols # first page
+                    acc_rows += rows # append rows
+                    offset += batch_export_limit # next page
+                    if batch_export_throttle_ms > 0: time.sleep(batch_export_throttle_ms / 1000) # throttle a bit, not so fast
+
+                export(acc_rows, acc_cols, outf) # all queries are finished, export them  
+
             else:
-                ok, cols, rows = util.exec_query(ws, sql, 
-                                log_msg=debug,
-                                v_db_index=v_db_index, 
-                                v_context_code=ctx_id,
-                                v_conn_tab_id=v_conn_tab_id,
-                                v_tab_id=v_tab_id, 
-                                v_tab_db_id=v_tab_db_id)
+                ok, cols, rows = util.exec_query(ws, sql, qry_ctx, debug)
                 if not ok: continue
                 if do_export: 
                     outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
