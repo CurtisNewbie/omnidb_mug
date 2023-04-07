@@ -17,6 +17,14 @@ class Tester(unittest.TestCase):
         _, completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table;'
 
+        sql = 'SELECT name, desc FROM table;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT name, desc FROM my_db.table;'
+
+        sql = 'SELECT name  FROM table;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT name  FROM my_db.table;'
+
         sql = 'SELECT count(*) FROM table ;'
         _, completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table ;'
@@ -76,6 +84,22 @@ class Tester(unittest.TestCase):
         sql = 'desc my_table ;  '
         _, completed = util.auto_complete_db(sql, db)
         assert completed == 'desc my_db.my_table ;'
+
+        sql = 'desc db.my_table ;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'desc db.my_table ;'
+
+        sql = 'desc db.my_table'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'desc db.my_table'
+
+        sql = 'show create table db.abc ;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'show create table db.abc ;'
+
+        sql = 'show create table db.abc'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'show create table db.abc'
 
         sql = 'show create table abc ;'
         _, completed = util.auto_complete_db(sql, db)
