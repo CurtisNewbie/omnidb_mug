@@ -9,6 +9,18 @@ class Tester(unittest.TestCase):
         _, completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name = "gucci" limit 10'
 
+        sql = 'SELECT count(*) FROM table where name = "gucci" limit 10'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT count(*) FROM my_db.table where name = "gucci" limit 10'
+
+        sql = 'SELECT count(*) FROM table;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT count(*) FROM my_db.table;'
+
+        sql = 'SELECT count(*) FROM table ;'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT count(*) FROM my_db.table ;'
+
         sql = 'SELECT * FROM apple.table where name = "gucci" limit 10'
         _, completed = util.auto_complete_db(sql, db)
         assert completed == sql 

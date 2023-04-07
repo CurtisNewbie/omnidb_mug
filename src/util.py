@@ -37,10 +37,10 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-slt_sql_pat = re.compile(r"^select +[0-9a-zA-Z_\*]* *from *(\.?[`0-9a-zA-Z_]+)(?: *| [`0-9a-zA-Z_]+ ?.*)$", re.IGNORECASE) 
-show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [\w\'\"`%]+) *;? *$", re.IGNORECASE) 
-show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
-desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
+slt_sql_pat = re.compile(r"^select +[^ ]* +from +(\.?[\`\w_]+)(?: *| [^ ]+ *.*);?$", re.IGNORECASE) 
+show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE) 
+show_crt_tb_pat = re.compile(r"^show +create +table +([^ ]+) *;? *$", re.IGNORECASE) 
+desc_tb_pat = re.compile(r"^desc +(\.?[^ ]+) *;? *$", re.IGNORECASE) 
 def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
     start = time.monotonic_ns()
     
