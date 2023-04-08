@@ -37,7 +37,6 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-# slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| [^ ]+ *.*);?$", re.IGNORECASE) 
 slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IGNORECASE) 
 show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE) 
 show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
