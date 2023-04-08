@@ -29,6 +29,9 @@ host = ''
 # debug mode, env: OMNIDB_MUG_DEBUG
 debug = False       
 
+# force to use OFFSET,LIMIT to export, env: OMNIDB_MUG_FORCE_BATCH_EXPORT
+force_batch_export = False
+
 # page limit of batch export
 batch_export_limit = 400  
 
@@ -101,12 +104,14 @@ def is_export_cmd(cmd: str) -> str:
 
 
 def launch_console():
-    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol, use_database
+    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol, use_database, force_batch_export
     ws: WebSocket = None
 
+    if os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT') and os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT').lower() == 'true': force_batch_export = True
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
+    util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
 
     qry_ctx = util.QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
@@ -164,7 +169,8 @@ def launch_console():
             if do_export: 
                 sql: str = sql[EXPORT_LEN:].strip()
                 if sql == "": continue
-                if not util.query_has_limit(sql):
+                if force_batch_export: batch_export = True
+                elif not util.query_has_limit(sql):
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
             
             if is_change_instance(cmd):
@@ -191,12 +197,13 @@ def launch_console():
                     print(offset_sql)
 
                     ok, cols, rows = util.exec_query(ws, offset_sql, qry_ctx, debug)
-                    if not ok: break 
-                    if len(rows) < 1 or len(rows) < batch_export_limit: break # the end of pagination
+                    if not ok or len(rows) < 1: break # error or empty page 
 
                     if offset < 1: acc_cols = cols # first page
                     acc_rows += rows # append rows
                     offset += batch_export_limit # next page
+
+                    if len(rows) < batch_export_limit:  break # the end of pagination
                     if batch_export_throttle_ms > 0: time.sleep(batch_export_throttle_ms / 1000) # throttle a bit, not so fast
 
                 export(acc_rows, acc_cols, outf) # all queries are finished, export them  
