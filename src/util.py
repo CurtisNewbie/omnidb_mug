@@ -76,7 +76,7 @@ def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
             sql = insert_db_name(sql, database, open, close) 
             completed = True
 
-    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1000:.2f}ms): {sql}")
+    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.5f}ms): {sql}")
     return completed, sql
 
 
@@ -201,6 +201,8 @@ class QueryContext:
 
 
 def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tuple[bool, list[str],list[list[str]]]:
+    start = time.monotonic_ns()
+
     msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
 
     resp = ws_send_recv(ws, msg, debug, 2)
@@ -242,9 +244,11 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tupl
                 for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
                 print(row_ctn)
             print(col_sep)
+
     print()
-    print(f"Total: {len(rows)}")
-    print(f"Cost : {cost}")
+    print(f"Total    : {len(rows)}")
+    print(f"Cost     : {cost}")
+    print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
     print()
     return [True, col, rows]
 
