@@ -198,10 +198,16 @@ class QueryContext:
         self.v_tab_id = ""
         self.v_tab_db_id = "" 
 
+ 
+escape_pat = re.compile(r'([^\\])(")') 
+def escape(sql: str) -> str:
+    return re.sub(escape_pat, r'\1\\"', sql)
+
 
 def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tuple[bool, list[str],list[list[str]]]:
+    sql = escape(sql)
+    if debug: print(f"Executing query: '{sql}'")
     start = time.monotonic_ns()
-
     msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
 
     resp = ws_send_recv(ws, msg, debug, 2)

@@ -1,3 +1,4 @@
+import argparse
 import util
 import getpass
 import os
@@ -31,6 +32,9 @@ debug = False
 
 # force to use OFFSET,LIMIT to export, env: OMNIDB_MUG_FORCE_BATCH_EXPORT
 force_batch_export = False
+
+# disable auto complete, env: OMNIDB_MUG_DISABLE_AUTO_COMPLETE
+disable_auto_complete = False
 
 # page limit of batch export
 batch_export_limit = 400  
@@ -105,13 +109,23 @@ def is_export_cmd(cmd: str) -> str:
 
 def launch_console():
     global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol, use_database, force_batch_export
+
+    ap = argparse.ArgumentParser(description="OmniDB Mug", formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument('-p', '--password', type=str, help=f"Password", default="")
+    args = ap.parse_args()
+    
     ws: WebSocket = None
 
+    disable_db_auto_complete = False
+    if os.getenv('OMNIDB_MUG_DISABLE_AUTO_COMPLETE') and os.getenv('OMNIDB_MUG_DISABLE_AUTO_COMPLETE').lower() == 'true': disable_db_auto_complete = True
     if os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT') and os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT').lower() == 'true': force_batch_export = True
     if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
+
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
+    util.env_print("Debug Mode", debug)
+    util.env_print("Disable DB Auto-Complete", disable_db_auto_complete)
 
     qry_ctx = util.QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
@@ -131,6 +145,7 @@ def launch_console():
         csrf = util.get_csrf_token(host, protocol=http_protocol, debug=debug)
 
         pw = ""
+        if args.password: pw = args.password 
         while not pw: pw = getpass.getpass(f"Enter Password for '{uname}': ").strip()
 
         # login
@@ -178,7 +193,8 @@ def launch_console():
                 continue
 
             if debug: print(f"sql: '{sql}'")
-            auto_comp_db, sql = util.auto_complete_db(sql, use_database)
+            auto_comp_db = False
+            if not disable_db_auto_complete: auto_comp_db, sql = util.auto_complete_db(sql, use_database)
             if not auto_comp_db and parse_use_db(sql): continue
 
             if debug: print(f"preprocessed sql: '{sql}'")

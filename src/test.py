@@ -3,11 +3,27 @@ import util
 
 class Tester(unittest.TestCase):
 
+    def test_escape_sql(self):
+        e = util.escape('select * from table where f = "12345";')
+        assert e == 'select * from table where f = \\"12345\\";'
+
+        e = util.escape('select * from table where f = \'12345\';')
+        assert e == 'select * from table where f = \'12345\';'
+
+
     def test_auto_complete_db(self):
         db = 'my_db'
         sql = 'SELECT * FROM table where name = "gucci" limit 10'
         _, completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name = "gucci" limit 10'
+
+        sql = 'SELECT * FROM table where name in ("gucci", "juice") limit 10'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT * FROM my_db.table where name in ("gucci", "juice") limit 10'
+
+        sql = 'SELECT * FROM table where f_name in ("gucci", "juice") limit 10'
+        _, completed = util.auto_complete_db(sql, db)
+        assert completed == 'SELECT * FROM my_db.table where f_name in ("gucci", "juice") limit 10'
 
         sql = 'SELECT count(*) FROM table where name = "gucci" limit 10'
         _, completed = util.auto_complete_db(sql, db)
