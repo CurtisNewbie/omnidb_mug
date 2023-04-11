@@ -15,35 +15,6 @@ CHANGE_INSTANCE = "change instance"
 v_tab_id = "conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
-# username, env: OMNIDB_MUG_USER
-uname = ''
-
-# http protocol
-http_protocol = util.DEFAULT_HTTP_PROTOCOL 
-
-# websocket protocol
-ws_protocol = util.DEFAULT_WS_PROTOCOL 
-
-# host (without protocol), env: OMNIDB_MUG_HOST
-host = ''
-
-# debug mode, env: OMNIDB_MUG_DEBUG
-debug = False       
-
-# force to use OFFSET,LIMIT to export, env: OMNIDB_MUG_FORCE_BATCH_EXPORT
-force_batch_export = False
-
-# disable auto complete, env: OMNIDB_MUG_DISABLE_AUTO_COMPLETE
-disable_auto_complete = False
-
-# page limit of batch export
-batch_export_limit = 400  
-
-# sleep time in ms for each batch export
-batch_export_throttle_ms = 200
-
-use_database: str = ""
-
 
 def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False, debug = False) -> util.QueryContext:
     # list database instance, pick one to use
@@ -77,14 +48,13 @@ def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = Fal
 
 
 use_db_sql_pat =  re.compile(r"^use *([0-9a-zA-Z_]*) *;?$", re.IGNORECASE) 
-def parse_use_db(sql: str) -> bool:
-    global use_database 
+def parse_use_db(sql: str) -> tuple[bool, str]:
     m = use_db_sql_pat.match(sql)
     if m: 
         use_database = m.group(1).strip()
         print(f"Using databse: '{use_database}'")
-        return True
-    return False
+        return True, use_database
+    return False, None
 
 
 def export(rows, cols, outf):
@@ -107,36 +77,53 @@ def is_export_cmd(cmd: str) -> str:
     return exp_cmd_pat.match(cmd)  # cmd is trimmed already 
 
 
-def launch_console():
-    global debug, v_tab_id, v_conn_tab_id, uname, host, batch_export_limit, http_protocol, ws_protocol, use_database, force_batch_export
+def load_password(pf: str) -> str:
+    with open(pf) as f: return f.read().strip()
 
-    ap = argparse.ArgumentParser(description="OmniDB Mug", formatter_class=argparse.RawTextHelpFormatter)
+
+def launch_console():
+    global v_tab_id, v_conn_tab_id
+    use_database = ""
+
+    ap = argparse.ArgumentParser(description="OmniDB Mug By Yongjie.Zhuang", formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument('--host', type=str, help=f"Host", default="")
+    ap.add_argument('-u', '--user', type=str, help=f"User", default="")
     ap.add_argument('-p', '--password', type=str, help=f"Password", default="")
+    ap.add_argument('-pf', '--passwordfile', type=str, help=f"Password file", default="")
+    ap.add_argument('-d', '--debug', help=f"Enable debug mode (true/false)", action="store_true")
+    ap.add_argument('--http-protocol', type=str, help=f"HTTP Protocol to use (default: {util.DEFAULT_HTTP_PROTOCOL})", default=util.DEFAULT_HTTP_PROTOCOL)
+    ap.add_argument('--ws-protocol', type=str, help=f"WebSocket Protocol to use (default: {util.DEFAULT_WS_PROTOCOL})", default=util.DEFAULT_WS_PROTOCOL)
+    ap.add_argument('--force-batch-export', help=f"Force to use batch export (offset/limit)", action="store_true")
+    ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
+    ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {200})", default=200)
+    ap.add_argument('--disable-db-auto-complete', help=f"Disable DB name autocomplete", action="store_true")
     args = ap.parse_args()
     
-    ws: WebSocket = None
-
-    disable_db_auto_complete = False
-    if os.getenv('OMNIDB_MUG_DISABLE_AUTO_COMPLETE') and os.getenv('OMNIDB_MUG_DISABLE_AUTO_COMPLETE').lower() == 'true': disable_db_auto_complete = True
-    if os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT') and os.getenv('OMNIDB_MUG_FORCE_BATCH_EXPORT').lower() == 'true': force_batch_export = True
-    if os.getenv('OMNIDB_MUG_DEBUG') and os.getenv('OMNIDB_MUG_DEBUG').lower() == 'true': debug = True
+    host = args.host # host (without protocol)
+    uname = args.user # username
+    batch_export_limit = args.batch_export_limit # page limit for batch export
+    http_protocol = args.http_protocol # http protocol
+    ws_protocol = args.ws_protocol # websocket protocol
+    disable_db_auto_complete = True if args.disable_db_auto_complete else False # whether to disable db name autocomplete
+    force_batch_export = True if args.force_batch_export else False # whether to force to use OFFSET,LIMIT to export
+    debug = True if args.debug else False # enable debug mode
+    batch_export_throttle_ms = args.batch_export_throttle_ms # sleep time in ms for each batch export
 
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
     util.env_print("Debug Mode", debug)
-    util.env_print("Disable DB Auto-Complete", disable_db_auto_complete)
+    util.env_print("Disable DB Name Auto-Complete", disable_db_auto_complete)
 
+    ws: WebSocket = None
     qry_ctx = util.QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
     qry_ctx.v_tab_id = v_tab_id
     
     try:
-        if not host: host = os.getenv('OMNIDB_MUG_HOST')
         while not host: input("Enter host of Omnidb: ")
         util.env_print("Using Host", host)
 
-        if not uname: uname = os.getenv('OMNIDB_MUG_USER')
         while not uname: uname = input("Enter Username: ")
         util.env_print("Using Username", uname)
         print()
@@ -146,6 +133,7 @@ def launch_console():
 
         pw = ""
         if args.password: pw = args.password 
+        elif args.passwordfile: pw = load_password(args.passwordfile)
         while not pw: pw = getpass.getpass(f"Enter Password for '{uname}': ").strip()
 
         # login
@@ -184,24 +172,31 @@ def launch_console():
             if do_export: 
                 sql: str = sql[EXPORT_LEN:].strip()
                 if sql == "": continue
-                if force_batch_export: batch_export = True
-                elif not util.query_has_limit(sql):
-                    batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+                
+                if util.is_select(sql):
+                    if force_batch_export: batch_export = True
+                    elif not util.query_has_limit(sql):
+                        batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
             
             if is_change_instance(cmd):
                 qry_ctx = select_instance(sh, qry_ctx, debug=debug) 
                 continue
 
-            if debug: print(f"sql: '{sql}'")
+            if debug: print(f"[debug] sql: '{sql}'")
+
             auto_comp_db = False
             if not disable_db_auto_complete: auto_comp_db, sql = util.auto_complete_db(sql, use_database)
-            if not auto_comp_db and parse_use_db(sql): continue
+            if not auto_comp_db:
+                ok, db = parse_use_db(sql)
+                if ok: 
+                    use_database = db
+                    continue
 
-            if debug: print(f"preprocessed sql: '{sql}'")
+            if debug: print(f"[debug] preprocessed sql: '{sql}'")
 
             if batch_export:
-                outf = input('Please specify where to export (default to \'batch_export.xlsx\'): ').strip()
-                if not outf: outf = "batch_export.xlsx"
+                outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
+                if not outf: outf = "export.xlsx"
 
                 offset = 0  
                 acc_cols = []

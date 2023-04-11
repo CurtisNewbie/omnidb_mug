@@ -93,6 +93,11 @@ def is_show_create_table(sql: str) -> bool:
     return is_show_crt_tb_pat.match(sql)
 
 
+is_select_pat = re.compile(r"^select.*$", re.IGNORECASE)
+def is_select(cmd: str) -> bool:
+    return is_select_pat.match(cmd) 
+
+
 exit_pat = re.compile(r"^(?:quit|exit)(?:|\(\))$", re.IGNORECASE)
 def is_exit(cmd: str) -> bool:
     return exit_pat.match(cmd) 
@@ -105,17 +110,17 @@ def env_print(key, value):
 
 def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> str:
     url = protocol + host + "/"
-    if debug: print(f"Trying to get csrf token, url: {url}")
+    if debug: print(f"[debug] trying to get csrf token, url: {url}")
     resp: requests.Response = session.get(url)
     if not 'Set-Cookie' in resp.headers: sys_exit(1, f"Failed to retrieve csrf token")
     csrf = parse_set_cookie(resp.headers['Set-Cookie'], 'omnidb_csrftoken')
-    if debug: print(f"csrf token: '{csrf}'")
+    if debug: print(f"[debug] csrf token: '{csrf}'")
     return csrf
 
 
 def close_ws(ws: WebSocket, debug = False):
     if ws: ws.close()
-    if debug: print("Websocket disconnected")
+    if debug: print("[debug] websocket disconnected")
 
 
 def parse_set_cookie(header: str, key: str) -> str:
@@ -128,7 +133,7 @@ def parse_set_cookie(header: str, key: str) -> str:
 
 def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> "OSession":
     url = protocol + host + '/sign_in/'
-    if debug: print(f"Trying to login, url: {url}")
+    if debug: print(f"[debug] Trying to login, url: {url}")
 
     resp: requests.Response = session.post(url, data={
         'data': json.dumps({'p_username': username, 'p_pwd': password})
@@ -148,18 +153,18 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
     if not sh.sessionid:
         sys_exit(1, f"Login failed, unable to extract cookie in response, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
 
-    if debug: print(f"cookie: {sh.cookie}")
+    if debug: print(f"[debug] cookie: {sh.cookie}")
     return sh
 
 
-def ws_send_recv(ws: WebSocket, payload, log_msg=True, wait_recv_times=1) -> list[str]:
+def ws_send_recv(ws: WebSocket, payload, debug=True, wait_recv_times=1) -> list[str]:
     ws.send(payload)
-    if log_msg: print(f"ws sent: '{payload}'")
+    if debug: print(f"[debug] ws sent: '{payload}'")
     r = []
     for i in range(wait_recv_times):
         rcv = ws.recv()
         r.append(rcv)
-        if log_msg: print(f"ws received: [{i}] '{rcv}'")
+        if debug: print(f"[debug] ws received: [{i}] '{rcv}'")
     return r
 
 
@@ -206,7 +211,7 @@ def escape(sql: str) -> str:
 
 def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tuple[bool, list[str],list[list[str]]]:
     sql = escape(sql)
-    if debug: print(f"Executing query: '{sql}'")
+    if debug: print(f"[debug] executing query: '{sql}'")
     start = time.monotonic_ns()
     msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
 
@@ -263,19 +268,19 @@ def ws_connect(sh: OSession, host: str, protocol: str = DEFAULT_WS_PROTOCOL, deb
     if not url.endswith("/"):
         url += "/"
     url += "wss"
-    if debug: print(f"Connecting to websocket server, url: {url}")
+    if debug: print(f"[debug] connecting to websocket server, url: {url}")
     ws = create_connection(
         url, headers=["Upgrade: websocket"], cookie=sh.cookie)
-    if debug: print(f"Successfully connected to websocket server")
+    if debug: print(f"[debug] successfully connected to websocket server")
 
     # first message
-    ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', log_msg=debug)
+    ws_send_recv(ws, f'{{"v_code":0,"v_context_code":0,"v_error":false,"v_data":"{sh.sessionid}"}}', debug=debug)
     return ws
 
 
 def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database, debug = False):
     url = sh.protocol + sh.host + '/change_active_database/'
-    if debug: print(f"Changing active database, url: '{url}'")
+    if debug: print(f"[debug] changing active database, url: '{url}'")
 
     resp: requests.Response = session.post(url, data={
         'data': json.dumps({'p_database_index': p_database_index, 'p_tab_id': p_tab_id, "p_database": p_database})
@@ -290,7 +295,7 @@ def change_active_database(sh: OSession, p_database_index, p_tab_id, p_database,
 
 def get_database_list(sh: OSession, debug = False) -> ODatabase:
     url = sh.protocol + sh.host + '/get_database_list/'
-    if debug: print(f"Get database list, url: '{url}'")
+    if debug: print(f"[debug] get database list, url: '{url}'")
 
     resp: requests.Response = session.post(url, data={'data': ''}, headers={
         'cookie': sh.cookie,
