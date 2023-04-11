@@ -189,7 +189,7 @@ def launch_console():
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
             
             if is_change_instance(cmd):
-                qry_ctx = select_instance(sh, debug=debug) 
+                qry_ctx = select_instance(sh, qry_ctx, debug=debug) 
                 continue
 
             if debug: print(f"sql: '{sql}'")
@@ -233,6 +233,10 @@ def launch_console():
                     export(rows, cols, outf)
         except KeyboardInterrupt:
             print()
+
+        except BrokenPipeError:
+            print("\nReconnecting...")
+            ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
 
     # disconnect websocket
     util.close_ws(ws)
