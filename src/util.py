@@ -209,7 +209,7 @@ def escape(sql: str) -> str:
     return re.sub(escape_pat, r'\1\\"', sql)
 
 
-def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tuple[bool, list[str],list[list[str]]]:
+def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient = False) -> tuple[bool, list[str],list[list[str]]]:
     sql = escape(sql)
     if debug: print(f"[debug] executing query: '{sql}'")
     start = time.monotonic_ns()
@@ -230,36 +230,37 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False) -> tupl
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
      
-    if len(col) > 0:
-        if is_show_create_table(sql):
-            print("\n" + rows[0][1])
-        else: 
-            # max length among the rows
-            indent : dict[int][int] = {}
-            for i in range(len(col)): indent[i] = str_width(col[i])
-            for r in rows: 
-                for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
+    if not slient:
+        if len(col) > 0:
+            if is_show_create_table(sql):
+                print("\n" + rows[0][1])
+            else: 
+                # max length among the rows
+                indent : dict[int][int] = {}
+                for i in range(len(col)): indent[i] = str_width(col[i])
+                for r in rows: 
+                    for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
 
-            print()
-            col_title = "| "
-            col_sep = "|-"
-            for i in range(len(col)): 
-                col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
-                col_sep += sjoin(indent[i] + 1, "-") + "-|"
-                if i < len(col) - 1: col_sep += "-"
-            print(col_sep + "\n" + col_title + "\n" + col_sep)
+                print()
+                col_title = "| "
+                col_sep = "|-"
+                for i in range(len(col)): 
+                    col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
+                    col_sep += sjoin(indent[i] + 1, "-") + "-|"
+                    if i < len(col) - 1: col_sep += "-"
+                print(col_sep + "\n" + col_title + "\n" + col_sep)
 
-            for r in rows:
-                row_ctn = "| "
-                for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
-                print(row_ctn)
-            print(col_sep)
+                for r in rows:
+                    row_ctn = "| "
+                    for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
+                    print(row_ctn)
+                print(col_sep)
 
-    print()
-    print(f"Total    : {len(rows)}")
-    print(f"Cost     : {cost}")
-    print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
-    print()
+        print()
+        print(f"Total    : {len(rows)}")
+        print(f"Cost     : {cost}")
+        print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
+        print()
     return [True, col, rows]
 
 

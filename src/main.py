@@ -15,6 +15,13 @@ CHANGE_INSTANCE = "change instance"
 v_tab_id = "conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
+# auto complete words
+completer_candidates = {"exit", "change instance", "export", "use", "desc"}
+
+def add_completer_word(word): 
+    global completer_candidates
+    completer_candidates.add(word)
+
 
 def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False, debug = False) -> util.QueryContext:
     # list database instance, pick one to use
@@ -80,6 +87,11 @@ def is_export_cmd(cmd: str) -> str:
 def load_password(pf: str) -> str:
     with open(pf) as f: return f.read().strip()
 
+def completer(text, state):
+    global completer_candidates 
+    options = [cmd for cmd in completer_candidates if cmd.startswith(text)]
+    if state < len(options): return options[state]
+    else: return None
 
 def launch_console():
     global v_tab_id, v_conn_tab_id
@@ -150,6 +162,10 @@ def launch_console():
         print("\nBye!")
         return
 
+    # setup word completer
+    readline.parse_and_bind("tab: complete")
+    readline.set_completer(completer)
+
     # execute queries
     print()
     print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
@@ -158,6 +174,14 @@ def launch_console():
     print()
 
     qry_ctx.v_context_code = 2 # start with two, when we connect websocket, we always send the first msg to server right away
+
+    # fetch all database names for completer 
+    qry_ctx.v_context_code += 1
+    ok, cols, rows = util.exec_query(ws, "show databases", qry_ctx, debug, True)
+    if ok: 
+        for r in rows: 
+            for v in r: add_completer_word(v)
+
     while True: 
         try:
             cmd = input(f"({use_database}) > " if use_database else "> ").strip()
