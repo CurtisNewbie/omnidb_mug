@@ -61,9 +61,9 @@ _slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IG
 _show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE)
 _show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
 _desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
-def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
+def auto_complete_db(sql: str, database: str) -> str:
     start = time.monotonic_ns()
-    if not database: return False, sql
+    if not database: return sql
 
     sql = sql.strip()
 
@@ -95,8 +95,8 @@ def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
             sql = insert_db_name(sql, database, open, close)
             completed = True
 
-    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.5f}ms): {sql}")
-    return completed, sql
+    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.3f}ms): {sql}")
+    return sql
 
 
 def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
