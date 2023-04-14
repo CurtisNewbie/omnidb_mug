@@ -16,13 +16,13 @@ v_tab_id = "conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
 # auto complete words
-completer_candidates = {"exit", "change instance", "export", "use", "desc"}
+completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
 
 def nested_add_completer_word(rl: list[list[str]]):
-    for r in rl: 
+    for r in rl:
         for v in r: add_completer_word(v)
 
-def add_completer_word(word): 
+def add_completer_word(word):
     global completer_candidates
     completer_candidates.add(word)
 
@@ -30,13 +30,13 @@ def add_completer_word(word):
 def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False, debug = False) -> util.QueryContext:
     # list database instance, pick one to use
     db = util.get_database_list(sh, debug=debug)
-    v_tab_db_id = db.tabs[0].tab_db_id 
+    v_tab_db_id = db.tabs[0].tab_db_id
     v_db_index = db.tabs[0].index # this is the previously selected v_conn_id
 
     print("Available database connections:")
     prev_selected = 0
-    for i in range(len(db.connections)): 
-        if db.connections[i].v_conn_id  == v_db_index: 
+    for i in range(len(db.connections)):
+        if db.connections[i].v_conn_id  == v_db_index:
             prev_selected = i
             print(f"* [{i}] '{db.connections[i].v_alias}'")
         else: print(f"  [{i}] '{db.connections[i].v_alias}'")
@@ -47,7 +47,7 @@ def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = Fal
         if not resp: resp = prev_selected  # default db connection
 
     selected_conn = db.connections[int(resp)]
-    
+
     # change active database
     v_db_index = selected_conn.v_conn_id
     util.change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
@@ -55,13 +55,13 @@ def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = Fal
 
     qc.v_tab_db_id = v_tab_db_id
     qc.v_db_index = v_db_index
-    return qc 
+    return qc
 
 
-use_db_sql_pat =  re.compile(r"^use *([0-9a-zA-Z_]*) *;?$", re.IGNORECASE) 
+use_db_sql_pat =  re.compile(r"^use *([0-9a-zA-Z_]*) *;?$", re.IGNORECASE)
 def parse_use_db(sql: str) -> tuple[bool, str]:
     m = use_db_sql_pat.match(sql)
-    if m: 
+    if m:
         use_database = m.group(1).strip()
         # print(f"Using databse: '{use_database}'")
         return True, use_database

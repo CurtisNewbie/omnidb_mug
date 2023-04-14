@@ -48,7 +48,7 @@ _is_select = re.compile(r"^select .* from.*", re.IGNORECASE)
 _is_show_table = re.compile(r"^show +tables.*", re.IGNORECASE)
 _is_show_create_table = re.compile(r"^show +create +table.*", re.IGNORECASE)
 _is_desc = re.compile(r"^desc .*", re.IGNORECASE)
-_is_use_db = re.compile(r"^use .*", re.IGNORECASE) 
+_is_use_db = re.compile(r"^use .*", re.IGNORECASE)
 def guess_qry_type(sql: str) -> int:
     if _is_select.match(sql): return TP_SELECT
     if _is_show_table.match(sql): return TP_SHOW_TABLE
