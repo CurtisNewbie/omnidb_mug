@@ -63,7 +63,7 @@ def parse_use_db(sql: str) -> tuple[bool, str]:
     m = use_db_sql_pat.match(sql)
     if m: 
         use_database = m.group(1).strip()
-        print(f"Using databse: '{use_database}'")
+        # print(f"Using databse: '{use_database}'")
         return True, use_database
     return False, None
 
@@ -221,8 +221,17 @@ def launch_console():
             if not auto_comp_db:
                 ok, db = parse_use_db(sql)
                 if ok: 
-                    use_database = db
-                    continue
+                    # reset the database name used 
+                    if not db:
+                        use_database = db
+                        continue
+
+                    # fetch tables names for completer
+                    ok, cols, rows = util.exec_query(ws, f"SHOW TABLES in {db}", qry_ctx, debug, True)
+                    if ok:
+                        use_database = db
+                        nested_add_completer_word(rows)
+                        continue
 
             if debug: print(f"[debug] preprocessed sql: '{sql}'")
             if batch_export:
