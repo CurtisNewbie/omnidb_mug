@@ -267,8 +267,8 @@ def launch_console():
                     if not outf: outf = "export.xlsx"
                     export(rows, cols, outf)
 
-                # feed the table name to completer
-                if qry_tp == util.TP_SHOW_TABLE: nested_add_completer_word(rows)
+                # feed the table name and field names to completer
+                if qry_tp == util.TP_SHOW_TABLE or qry_tp == util.TP_DESC: nested_add_completer_word(rows)
         except KeyboardInterrupt: print()
         except BrokenPipeError:
             print("\nReconnecting...")
