@@ -10,11 +10,18 @@ DEFAULT_HTTP_PROTOCOL = "https://"
 DEFAULT_WS_PROTOCOL = "wss://"
 session = requests.Session() # reuse connection
 
+TP_SELECT = 0
+TP_SHOW_TABLE = 1
+TP_SHOW_CREATE_TABLE = 2
+TP_DESC = 3
+TP_USE_DB = 4
+TP_OTHER = -1
+
 class OTab:
     def __init__(self, index, tab_db_id, title):
-        self.index = index 
+        self.index = index
         self.tab_db_id = tab_db_id
-        self.title = title 
+        self.title = title
 
 class OConnection:
     def __init__(self, v_alias, v_conn_id):
@@ -29,7 +36,7 @@ class ODatabase:
 class OSession:
     def __init__(self, set_cookie: str, csrf_token: str, host: str, protocol: str):
         self.sessionid = ""
-        self.host = host 
+        self.host = host
         self.protocol = protocol
         self.csrf = csrf_token
 
@@ -37,42 +44,55 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IGNORECASE) 
-show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE) 
-show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE) 
-desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
+_is_select = re.compile(r"^select .* from.*", re.IGNORECASE)
+_is_show_table = re.compile(r"^show +tables.*", re.IGNORECASE)
+_is_show_create_table = re.compile(r"^show +create +table.*", re.IGNORECASE)
+_is_desc = re.compile(r"^desc .*", re.IGNORECASE)
+_is_use_db = re.compile(r"^use .*", re.IGNORECASE) 
+def guess_qry_type(sql: str) -> int:
+    if _is_select.match(sql): return TP_SELECT
+    if _is_show_table.match(sql): return TP_SHOW_TABLE
+    if _is_desc.match(sql): return TP_DESC
+    if _is_show_create_table.match(sql): return TP_SHOW_CREATE_TABLE
+    if _is_use_db.match(sql): return TP_USE_DB
+    return TP_OTHER
+
+_slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IGNORECASE)
+_show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE)
+_show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
+_desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
 def auto_complete_db(sql: str, database: str) -> tuple[bool, str]:
     start = time.monotonic_ns()
-    
     if not database: return False, sql
+
     sql = sql.strip()
 
     completed = False
-    m = slt_sql_pat.match(sql)
-    if m: 
+    m = _slt_sql_pat.match(sql)
+    if m:
         open, close = m.span(1)
-        sql = insert_db_name(sql, database, open, close) 
+        sql = insert_db_name(sql, database, open, close)
         completed = True
 
     if not completed:
-        m = show_tb_pat.match(sql)
+        m = _show_tb_pat.match(sql)
         if m:
             open, close = m.span(1)
             sql = sql[: open] + f" in {database}" + sql[close:]
             completed = True
 
     if not completed:
-        m = show_crt_tb_pat.match(sql)
+        m = _show_crt_tb_pat.match(sql)
         if m:
             open, close = m.span(1)
-            sql = insert_db_name(sql, database, open, close) 
+            sql = insert_db_name(sql, database, open, close)
             completed = True
 
     if not completed:
-        m = desc_tb_pat.match(sql)
+        m = _desc_tb_pat.match(sql)
         if m:
             open, close = m.span(1)
-            sql = insert_db_name(sql, database, open, close) 
+            sql = insert_db_name(sql, database, open, close)
             completed = True
 
     print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.5f}ms): {sql}")
@@ -83,24 +103,24 @@ def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
     table = sql[open:close].strip()
     l = table.find(".")
     if l < 0: table = "." + table
-    table = database + table 
+    table = database + table
     sql = sql[: open] + table + sql[close:]
     return sql
 
 
-is_show_crt_tb_pat = re.compile(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", re.IGNORECASE) 
+is_show_crt_tb_pat = re.compile(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", re.IGNORECASE)
 def is_show_create_table(sql: str) -> bool:
     return is_show_crt_tb_pat.match(sql)
 
 
 is_select_pat = re.compile(r"^select.*$", re.IGNORECASE)
 def is_select(cmd: str) -> bool:
-    return is_select_pat.match(cmd) 
+    return is_select_pat.match(cmd)
 
 
 exit_pat = re.compile(r"^(?:quit|exit)(?:|\(\))$", re.IGNORECASE)
 def is_exit(cmd: str) -> bool:
-    return exit_pat.match(cmd) 
+    return exit_pat.match(cmd)
 
 
 def env_print(key, value):
@@ -148,7 +168,7 @@ def login(csrf: str, host: str, username: str, password: str, protocol: str = DE
     if not 'Set-Cookie' in resp.headers:
         sys_exit(1, f"Login failed, password incorrect")
 
-    # parse cookie 
+    # parse cookie
     sh = OSession(resp.headers['Set-Cookie'], csrf, host, protocol)
     if not sh.sessionid:
         sys_exit(1, f"Login failed, unable to extract cookie in response, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
@@ -189,7 +209,7 @@ def query_has_limit(sql: str) -> bool:
 
 def str_width(s: str) -> int:
     l = 0
-    for i in range(len(s)): 
+    for i in range(len(s)):
         w = unicodedata.east_asian_width(s[i])
         l += 2 if w in ['W', 'F', 'A'] else 1
     return l
@@ -198,13 +218,13 @@ class QueryContext:
 
     def __init__(self):
         self.v_db_index = ""
-        self.v_context_code = "" 
-        self.v_conn_tab_id = "" 
+        self.v_context_code = ""
+        self.v_conn_tab_id = ""
         self.v_tab_id = ""
-        self.v_tab_db_id = "" 
+        self.v_tab_db_id = ""
 
- 
-escape_pat = re.compile(r'([^\\])(")') 
+
+escape_pat = re.compile(r'([^\\])(")')
 def escape(sql: str) -> str:
     return re.sub(escape_pat, r'\1\\"', sql)
 
@@ -221,7 +241,7 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient 
         errmsg = j["v_data"]["message"]
         print(f"Error: '{errmsg}'")
         return [False, [], []]
-    
+
     if not "v_data" in j:
         print("Unable to find 'v_data' in response, connection may have lost")
         return [False, [], []]
@@ -229,22 +249,22 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient 
     col = j["v_data"]["v_col_names"]
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
-     
+
     if not slient:
         if len(col) > 0:
             if is_show_create_table(sql):
                 print("\n" + rows[0][1])
-            else: 
+            else:
                 # max length among the rows
                 indent : dict[int][int] = {}
                 for i in range(len(col)): indent[i] = str_width(col[i])
-                for r in rows: 
+                for r in rows:
                     for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
 
                 print()
                 col_title = "| "
                 col_sep = "|-"
-                for i in range(len(col)): 
+                for i in range(len(col)):
                     col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
                     col_sep += sjoin(indent[i] + 1, "-") + "-|"
                     if i < len(col) - 1: col_sep += "-"
@@ -305,18 +325,18 @@ def get_database_list(sh: OSession, debug = False) -> ODatabase:
     })
     if resp.status_code != 200:
         sys_exit(1, f"Get database list failed, code: {resp.status_code}, msg: {resp.text}, headers: {resp.headers}")
-    
+
     j = json.loads(resp.text)
     connections = []
     if 'v_connections' in j['v_data']:
         for t in j['v_data']['v_connections']:
             connections.append(OConnection(t['v_alias'], t['v_conn_id']))
-    
+
     tabs = []
     if 'v_existing_tabs' in j['v_data']:
         for t in j['v_data']['v_existing_tabs']:
             tabs.append(OTab(t['index'], t['tab_db_id'], t['title']))
 
-    return ODatabase(connections, tabs)  
+    return ODatabase(connections, tabs)
 
 

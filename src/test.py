@@ -11,6 +11,40 @@ class Tester(unittest.TestCase):
         assert e == 'select * from table where f = \'12345\';'
 
 
+    def test_guess_qry_type(self):
+        assert util.guess_qry_type('SELECT * FROM table where name = "gucci" limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT * FROM table where name in ("gucci", "juice") limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT * FROM table where f_name in ("gucci", "juice") limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT count(*) FROM table where name = "gucci" limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT count(*) FROM table;') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT name  FROM table;') == util.TP_SELECT
+        assert util.guess_qry_type('SELECT * FROM apple.table where name = "gucci" limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('select * from .table where name = "gucci" limit 10') == util.TP_SELECT
+        assert util.guess_qry_type('show tables in db like abc') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables in db') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables;') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables ;') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables like abc;') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables like abc ;') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables like \'abc\';') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('show tables like \'%ab_c\';') == util.TP_SHOW_TABLE
+        assert util.guess_qry_type('desc my_table') == util.TP_DESC
+        assert util.guess_qry_type('desc my_table ;') == util.TP_DESC
+        assert util.guess_qry_type('desc my_table ;  ') == util.TP_DESC
+        assert util.guess_qry_type('desc db.my_table ;') == util.TP_DESC
+        assert util.guess_qry_type('desc db.my_table') == util.TP_DESC
+        assert util.guess_qry_type('show create table db.abc ;') == util.TP_SHOW_CREATE_TABLE
+        assert util.guess_qry_type('show create table db.abc') == util.TP_SHOW_CREATE_TABLE
+        assert util.guess_qry_type('show create table abc ;') == util.TP_SHOW_CREATE_TABLE
+        assert util.guess_qry_type('show create table abc ;   ') == util.TP_SHOW_CREATE_TABLE
+        assert util.guess_qry_type('show create table abc;') == util.TP_SHOW_CREATE_TABLE
+        assert util.guess_qry_type('use mydb') == util.TP_USE_DB
+        assert util.guess_qry_type('use mydb  ;') == util.TP_USE_DB
+        assert util.guess_qry_type('use  mydb  ') == util.TP_USE_DB
+        assert util.guess_qry_type('use  mydb  ;') == util.TP_USE_DB
+
+
     def test_auto_complete_db(self):
         db = 'my_db'
         sql = 'SELECT * FROM table where name = "gucci" limit 10'

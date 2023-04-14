@@ -18,6 +18,10 @@ v_conn_tab_id = "conn_tabs_tab4"
 # auto complete words
 completer_candidates = {"exit", "change instance", "export", "use", "desc"}
 
+def nested_add_completer_word(rl: list[list[str]]):
+    for r in rl: 
+        for v in r: add_completer_word(v)
+
 def add_completer_word(word): 
     global completer_candidates
     completer_candidates.add(word)
@@ -89,6 +93,7 @@ def load_password(pf: str) -> str:
 
 def completer(text, state):
     global completer_candidates 
+    if not text: return None
     options = [cmd for cmd in completer_candidates if cmd.startswith(text)]
     if state < len(options): return options[state]
     else: return None
@@ -175,12 +180,10 @@ def launch_console():
 
     qry_ctx.v_context_code = 2 # start with two, when we connect websocket, we always send the first msg to server right away
 
-    # fetch all database names for completer 
+    # fetch all schema names for completer 
     qry_ctx.v_context_code += 1
     ok, cols, rows = util.exec_query(ws, "show databases", qry_ctx, debug, True)
-    if ok: 
-        for r in rows: 
-            for v in r: add_completer_word(v)
+    if ok: nested_add_completer_word(rows)
 
     while True: 
         try:
@@ -208,8 +211,13 @@ def launch_console():
 
             if debug: print(f"[debug] sql: '{sql}'")
 
-            auto_comp_db = False
-            if not disable_db_auto_complete: auto_comp_db, sql = util.auto_complete_db(sql, use_database)
+            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
+            qry_tp: int = util.guess_qry_type(sql) 
+
+            # auto complete database name
+            auto_comp_db: bool = False
+            if not disable_db_auto_complete and use_database: 
+                auto_comp_db, sql = util.auto_complete_db(sql, use_database)
             if not auto_comp_db:
                 ok, db = parse_use_db(sql)
                 if ok: 
@@ -217,7 +225,6 @@ def launch_console():
                     continue
 
             if debug: print(f"[debug] preprocessed sql: '{sql}'")
-
             if batch_export:
                 outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
                 if not outf: outf = "export.xlsx"
@@ -250,9 +257,10 @@ def launch_console():
                     outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
                     if not outf: outf = "export.xlsx"
                     export(rows, cols, outf)
-        except KeyboardInterrupt:
-            print()
 
+                # feed the table name to completer
+                if qry_tp == util.TP_SHOW_TABLE: nested_add_completer_word(rows)
+        except KeyboardInterrupt: print()
         except BrokenPipeError:
             print("\nReconnecting...")
             ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
