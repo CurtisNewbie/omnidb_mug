@@ -281,6 +281,7 @@ def launch_console():
         except BrokenPipeError:
             print("\nReconnecting...")
             ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
+            print("Reconnected, please try again")
 
     # disconnect websocket
     util.close_ws(ws)
