@@ -46,7 +46,13 @@ def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = Fal
         resp = input(f"\nPlease select database connections: ").strip().lower()
         if not resp: resp = prev_selected  # default db connection
 
-    selected_conn = db.connections[int(resp)]
+    selected_idx = int(resp)
+
+    # invalid answer, select the previous one
+    if selected_idx < 0 or selected_idx >= len(db.connections): selected_idx = prev_selected
+
+    # change to selected connection
+    selected_conn = db.connections[selected_idx]
 
     # change active database
     v_db_index = selected_conn.v_conn_id
@@ -198,24 +204,29 @@ def launch_console():
             batch_export = False
             sql = cmd
 
+            # parse \G
+            is_pretty_print, sql = util.parse_pretty_print(sql)
+
+            # parse export command
             do_export = is_export_cmd(cmd)
             if do_export:
                 sql: str = sql[EXPORT_LEN:].strip()
                 if sql == "": continue
 
-                if util.is_select(sql):
-                    if force_batch_export: batch_export = True
-                    elif not util.query_has_limit(sql):
-                        batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
+            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
+            qry_tp: int = util.guess_qry_type(sql)
+
+            # is export & select
+            if do_export and qry_tp == util.TP_SELECT:
+                if force_batch_export: batch_export = True
+                elif not util.query_has_limit(sql):
+                    batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
 
             if is_change_instance(cmd):
                 qry_ctx = select_instance(sh, qry_ctx, debug=debug)
                 continue
 
             if debug: print(f"[debug] sql: '{sql}'")
-
-            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
-            qry_tp: int = util.guess_qry_type(sql)
 
             if qry_tp == util.TP_USE_DB: # USE `mydb`
                 ok, db = parse_use_db(sql)
@@ -268,7 +279,7 @@ def launch_console():
                 export(acc_rows, acc_cols, outf) # all queries are finished, export them
 
             else:
-                ok, cols, rows = util.exec_query(ws, sql, qry_ctx, debug)
+                ok, cols, rows = util.exec_query(ws, sql, qry_ctx, debug, False, is_pretty_print)
                 if not ok: continue
                 if do_export:
                     outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()

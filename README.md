@@ -23,6 +23,12 @@ Then it will attempt to autocomplete following queries if possible.
 - `DESC ...` queries.
 
 
+Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example: 
+
+```sql
+select * from my_table limit 1 \G
+```
+
 ## Demo
 
 <img src="demo/demo1.jpeg" alt="demo1" width="600">

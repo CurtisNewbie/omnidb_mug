@@ -164,6 +164,24 @@ class Tester(unittest.TestCase):
         assert completed == 'show create table my_db.abc;'
 
 
+    def test_parse_pretty_print(self):
+        p, s = util.parse_pretty_print("select 1 from abc \G")
+        assert p
+        assert s == "select 1 from abc"
+
+        p, s = util.parse_pretty_print("select 1 from abc \g")
+        assert p
+        assert s == "select 1 from abc"
+
+        p, s = util.parse_pretty_print("select 1 from abc \G;")
+        assert p
+        assert s == "select 1 from abc ;"
+
+        p, s = util.parse_pretty_print("select 1 from abc \G ;")
+        assert p
+        assert s == "select 1 from abc  ;"
+
+
     def test_is_exit_cmd(self):
         assert util.is_exit("exit")
         assert not util.is_exit("exit(")

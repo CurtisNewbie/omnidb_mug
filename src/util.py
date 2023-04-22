@@ -99,6 +99,16 @@ def auto_complete_db(sql: str, database: str) -> str:
     return sql
 
 
+_pretty_print_pat = re.compile(r"^.*(\\G) *;?$", re.IGNORECASE)
+def parse_pretty_print(sql: str) -> tuple[bool, str]:
+    m = _pretty_print_pat.match(sql)
+    if not m: return False, sql
+
+    open, close = m.span(1)
+    sql = sql[: open] + "" + sql[close:] # remove the \G
+    return True, sql.strip()
+
+
 def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
     table = sql[open:close].strip()
     l = table.find(".")
@@ -229,9 +239,9 @@ def escape(sql: str) -> str:
     return re.sub(escape_pat, r'\1\\"', sql)
 
 
-def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient = False) -> tuple[bool, list[str],list[list[str]]]:
+def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient = False, pretty = False) -> tuple[bool, list[str],list[list[str]]]:
     sql = escape(sql)
-    if debug: print(f"[debug] executing query: '{sql}'")
+    if debug: print(f"[debug] executing query: '{sql}', slient: {slient}, pretty: {pretty}")
     start = time.monotonic_ns()
     msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
 
@@ -250,10 +260,28 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient 
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
 
-    if not slient:
-        if len(col) > 0:
-            if is_show_create_table(sql):
-                print("\n" + rows[0][1])
+    if not slient and len(col) > 0:
+        if is_show_create_table(sql):
+            print("\n" + rows[0][1])
+        else:
+            if pretty:
+
+                # max length among the column names
+                max_col_len = 0
+                for c in col: max_col_len = max(str_width(c), max_col_len)
+                if debug: print(f"max_col_len: {max_col_len}")
+
+                sl = []
+                for r in rows:
+                    s = ""
+                    for i in range(len(col)):
+                        s += f"{spaces(max_col_len - str_width(col[i]))}{col[i]}: {r[i]}"
+                        if i < len(col) - 1: s += "\n"
+                    sl.append(s)
+
+                print("\n******************************************\n")
+                print("\n\n******************************************\n\n".join(sl))
+                print("\n******************************************")
             else:
                 # max length among the rows
                 indent : dict[int][int] = {}
