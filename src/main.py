@@ -97,6 +97,7 @@ def is_export_cmd(cmd: str) -> str:
 def load_password(pf: str) -> str:
     with open(pf) as f: return f.read().strip()
 
+
 def completer(text, state):
     global completer_candidates
     if not text: return None
@@ -245,7 +246,10 @@ def launch_console():
                         if ok:
                             swapped_db.add(db)
                             use_database = db
-                            nested_add_completer_word(rows)
+
+                            for lr in rows:
+                                for cw in lr: add_completer_word(cw)
+                                for cw in [db + "." + rv for rv in lr]: add_completer_word(cw)
                             continue
 
             # auto complete database name
