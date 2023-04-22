@@ -128,7 +128,7 @@ def is_select(cmd: str) -> bool:
     return is_select_pat.match(cmd)
 
 
-exit_pat = re.compile(r"^(?:quit|exit)(?:|\(\))$", re.IGNORECASE)
+exit_pat = re.compile(r"^(?:quit|exit|\\quit|\\exit)(?:|\(\))$", re.IGNORECASE)
 def is_exit(cmd: str) -> bool:
     return exit_pat.match(cmd)
 

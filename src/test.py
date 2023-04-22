@@ -189,6 +189,8 @@ class Tester(unittest.TestCase):
         assert util.is_exit("quit")
         assert util.is_exit("quit()")
         assert util.is_exit("QUIT()")
+        assert util.is_exit("\quit")
+        assert util.is_exit("\exit")
 
 
 if __name__ == "__main__":
