@@ -269,7 +269,7 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient 
                 # max length among the column names
                 max_col_len = 0
                 for c in col: max_col_len = max(str_width(c), max_col_len)
-                if debug: print(f"max_col_len: {max_col_len}")
+                if debug: print(f"[debug] max_col_len: {max_col_len}")
 
                 sl = []
                 for r in rows:
