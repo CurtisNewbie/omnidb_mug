@@ -24,7 +24,7 @@ Then it will attempt to autocomplete following queries if possible.
 
 Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
 
-Move **Special Commands**:
+More **Special Commands**:
 
 - `\reconnect` to reconnect the websocket
 - `\change` to change the instance used
