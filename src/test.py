@@ -1,5 +1,6 @@
 import unittest
 import util
+import main
 
 class Tester(unittest.TestCase):
 
@@ -10,6 +11,17 @@ class Tester(unittest.TestCase):
         e = util.escape('select * from table where f = \'12345\';')
         assert e == 'select * from table where f = \'12345\';'
 
+    def test_change_instance(self):
+        assert main.is_change_instance('\\change')
+        assert main.is_change_instance('\\CHANGE')
+
+    def test_is_reconnect(self):
+        assert main.is_reconnect('\\reconnect')
+        assert main.is_reconnect('\\RECONNECT')
+
+    def test_is_export(self):
+        assert main.is_export_cmd('\\export')
+        assert main.is_export_cmd('\\EXPORT')
 
     def test_guess_qry_type(self):
         assert util.guess_qry_type('SELECT * FROM table where name = "gucci" limit 10') == util.TP_SELECT

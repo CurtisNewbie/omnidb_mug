@@ -17,13 +17,18 @@ It now supports autocomplete for certain queries that don't specify the schema n
 
 Then it will attempt to autocomplete following queries if possible.
 
-- Very basic `SELECT ... FROM ...` queries, JOIN are not supported (that will be way too complex). 
+- Very basic `SELECT ... FROM ...` queries, JOIN are not supported (that will be way too complex).
 - `SHOW TABLES ... LIKE ...` queries.
 - `SHOW CREATE TABLE ...` queries.
 - `DESC ...` queries.
 
+Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
 
-Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example: 
+Move **Special Commands**:
+
+- `\reconnect` to reconnect the websocket
+- `\change` to change the instance used
+- `\export [SQL]` to export the result of query as an excel file
 
 ```sql
 select * from my_table limit 1 \G

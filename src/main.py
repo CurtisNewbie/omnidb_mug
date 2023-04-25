@@ -8,8 +8,7 @@ import time
 from websocket import WebSocket
 import time
 
-EXPORT_LEN = len("export")
-CHANGE_INSTANCE = "change instance"
+EXPORT_LEN = len("\export")
 
 # TODO these doesn't seem to be important :D
 v_tab_id = "conn_tabs_tab4_tabs_tab1"
@@ -83,16 +82,17 @@ def export(rows, cols, outf):
     ep.export(outf)
     print(f"Exported to '{outf}'")
 
+re_conn_pat = re.compile("^\\\\reconnect.*", re.IGNORECASE)
+def is_reconnect(cmd: str) -> str:
+    return re_conn_pat.match(cmd)  # cmd is trimmed already
 
-chg_inst_pat = re.compile("[Cc][Hh][Aa][Nn][Gg][Ee] +[Ii][Nn][Ss][Tt][Aa][Nn][Cc][Ee] *")
+chg_inst_pat = re.compile("^\\\\change.*", re.IGNORECASE)
 def is_change_instance(cmd: str) -> str:
     return chg_inst_pat.match(cmd)  # cmd is trimmed already
 
-
-exp_cmd_pat = re.compile("[Ee][Xx][Pp][Oo][Rr][Tt].*")
+exp_cmd_pat = re.compile("^\\\\export.*", re.IGNORECASE)
 def is_export_cmd(cmd: str) -> str:
     return exp_cmd_pat.match(cmd)  # cmd is trimmed already
-
 
 def load_password(pf: str) -> str:
     with open(pf) as f: return f.read().strip()
@@ -181,8 +181,9 @@ def launch_console():
     # execute queries
     print()
     print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
-    print("Enter 'export [SQL]' to export excel files (csv/xlsx/xls)")
-    print("Enter 'change instance' to change the connected instance")
+    print("Enter '\\export [SQL]' to export excel files (csv/xlsx/xls)")
+    print("Enter '\\change' to change the connected instance")
+    print("Enter '\\reconnect' to reconnect the websocket connection")
     print()
 
     qry_ctx.v_context_code = 2 # start with two, when we connect websocket, we always send the first msg to server right away
@@ -225,6 +226,18 @@ def launch_console():
 
             if is_change_instance(cmd):
                 qry_ctx = select_instance(sh, qry_ctx, debug=debug)
+                continue
+
+            if is_reconnect(cmd):
+                print("Reconnecting...")
+                try:
+                    ws.close()
+                except Exception as e:
+                    if debug: print(f"[debug] error occurred while reconnecting, {e}")
+                    pass # do nothing
+
+                ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
+                print("Reconnected")
                 continue
 
             if debug: print(f"[debug] sql: '{sql}'")
