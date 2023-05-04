@@ -13,14 +13,7 @@ python3 src/main.py
 - [CurtisNewbie/excelparser](https://github.com/CurtisNewbie/excelparser) is needed for exporting query result to excel files
 
 
-It now supports autocomplete for certain queries that don't specify the schema name they use. Use `USE {DATABASE_NAME}` to tell which database you want to use.
-
-Then it will attempt to autocomplete following queries if possible.
-
-- Very basic `SELECT ... FROM ...` queries, JOIN are not supported (that will be way too complex).
-- `SHOW TABLES ... LIKE ...` queries.
-- `SHOW CREATE TABLE ...` queries.
-- `DESC ...` queries.
+It now supports auto-completion for database, table and field (by typing TAB). Query `'USE {DATABASE_NAME}'` to tell which database you want to use, you will still need to include the schema name in your queries because OmniDB doesn't support this.
 
 Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
 

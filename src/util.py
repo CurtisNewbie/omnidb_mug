@@ -62,6 +62,9 @@ _show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNOR
 _show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
 _desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
 def auto_complete_db(sql: str, database: str) -> str:
+    '''
+    TODO: deprecated, it's not very useful, since it only supports simple queries
+    '''
     start = time.monotonic_ns()
     if not database: return sql
 

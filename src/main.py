@@ -107,7 +107,6 @@ def completer(text, state):
 
 def launch_console():
     global v_tab_id, v_conn_tab_id
-    use_database = ""
 
     ap = argparse.ArgumentParser(description="OmniDB Mug By Yongjie.Zhuang", formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument('--host', type=str, help=f"Host", default="")
@@ -120,7 +119,6 @@ def launch_console():
     ap.add_argument('--force-batch-export', help=f"Force to use batch export (offset/limit)", action="store_true")
     ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
     ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {200})", default=200)
-    ap.add_argument('--disable-db-auto-complete', help=f"Disable DB name autocomplete", action="store_true")
     args = ap.parse_args()
 
     host = args.host # host (without protocol)
@@ -128,16 +126,14 @@ def launch_console():
     batch_export_limit = args.batch_export_limit # page limit for batch export
     http_protocol = args.http_protocol # http protocol
     ws_protocol = args.ws_protocol # websocket protocol
-    disable_db_auto_complete = True if args.disable_db_auto_complete else False # whether to disable db name autocomplete
-    force_batch_export = True if args.force_batch_export else False # whether to force to use OFFSET,LIMIT to export
-    debug = True if args.debug else False # enable debug mode
+    force_batch_export = args.force_batch_export # whether to force to use OFFSET,LIMIT to export
+    debug = args.debug # enable debug mode
     batch_export_throttle_ms = args.batch_export_throttle_ms # sleep time in ms for each batch export
 
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
     util.env_print("Debug Mode", debug)
-    util.env_print("Disable DB Name Auto-Complete", disable_db_auto_complete)
 
     ws: WebSocket = None
     qry_ctx = util.QueryContext()
@@ -198,7 +194,7 @@ def launch_console():
 
     while True:
         try:
-            cmd = input(f"({use_database}) > " if use_database else "> ").strip()
+            cmd = input("> ").strip()
             if cmd == "": continue
             if util.is_exit(cmd): break
 
@@ -245,29 +241,20 @@ def launch_console():
             if qry_tp == util.TP_USE_DB: # USE `mydb`
                 ok, db = parse_use_db(sql)
                 if ok:
-                    # reset the database name used
-                    if not db:
-                        use_database = ""
+                    if not db or db in swapped_db: continue
+
+                    print("Fetching table and fields for auto-completion")
+                    ok, cols, rows = util.exec_query(ws, f"SHOW TABLES in {db}", qry_ctx, debug, True) # fetch tables names for completer
+                    if ok:
+                        ok, _, drows = util.exec_query(ws, f"SELECT DISTINCT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`='{db}'", qry_ctx, debug, True, False)
+                        if ok: nested_add_completer_word(drows)
+
+                        for lr in rows:
+                            for cw in lr: add_completer_word(cw)
+                            for cw in [db + "." + rv for rv in lr]: add_completer_word(cw)
+
+                        swapped_db.add(db)
                         continue
-
-                    if db in swapped_db:
-                        use_database = db
-                        continue
-                    else:
-                        # fetch tables names for completer
-                        ok, cols, rows = util.exec_query(ws, f"SHOW TABLES in {db}", qry_ctx, debug, True)
-                        if ok:
-                            swapped_db.add(db)
-                            use_database = db
-
-                            for lr in rows:
-                                for cw in lr: add_completer_word(cw)
-                                for cw in [db + "." + rv for rv in lr]: add_completer_word(cw)
-                            continue
-
-            # auto complete database name
-            elif not disable_db_auto_complete and use_database:
-                sql = util.auto_complete_db(sql, use_database)
 
             if debug: print(f"[debug] preprocessed sql: '{sql}'")
             if batch_export:
