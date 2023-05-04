@@ -17,15 +17,15 @@ It now supports auto-completion for database, table and field (by typing TAB). Q
 
 Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
 
+```sql
+select * from my_database.my_table limit 1 \G
+```
+
 More **Special Commands**:
 
 - `\reconnect` to reconnect the websocket
 - `\change` to change the instance used
 - `\export [SQL]` to export the result of query as an excel file
-
-```sql
-select * from my_table limit 1 \G
-```
 
 ## Demo
 
