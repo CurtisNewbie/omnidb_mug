@@ -312,6 +312,9 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient 
         print(f"Cost     : {cost}")
         print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
         print()
+
+    if debug: print(f"[debug] Total: {len(rows)}, Cost: {cost}, Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
+
     return [True, col, rows]
 
 

@@ -17,12 +17,13 @@ v_conn_tab_id = "conn_tabs_tab4"
 # auto complete words
 completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
 
-def nested_add_completer_word(rl: list[list[str]]):
+def nested_add_completer_word(rl: list[list[str]], debug = False):
     for r in rl:
-        for v in r: add_completer_word(v)
+        for v in r: add_completer_word(v, debug)
 
-def add_completer_word(word):
+def add_completer_word(word, debug = False):
     global completer_candidates
+    if debug: print(f"[debug] add completer: {word}")
     completer_candidates.add(word)
 
 
@@ -186,8 +187,11 @@ def launch_console():
 
     # fetch all schema names for completer
     qry_ctx.v_context_code += 1
-    ok, cols, rows = util.exec_query(ws, "show databases", qry_ctx, debug, True)
-    if ok: nested_add_completer_word(rows)
+    ok, _, rows = util.exec_query(ws, "SELECT table_schema, table_name FROM INFORMATION_SCHEMA.TABLES", qry_ctx, debug, True)
+    if ok:
+        for r in rows:
+            add_completer_word(r[0], debug) # SCHEMA
+            add_completer_word(r[0] + "." + r[1], debug) # SCHEMA.TABLE
 
     # database names that we have USE(d)
     swapped_db = set()
@@ -243,15 +247,11 @@ def launch_console():
                 if ok:
                     if not db or db in swapped_db: continue
 
-                    print("Fetching table and fields for auto-completion")
+                    print("Fetching field names for auto-completion")
                     ok, cols, rows = util.exec_query(ws, f"SHOW TABLES in {db}", qry_ctx, debug, True) # fetch tables names for completer
                     if ok:
                         ok, _, drows = util.exec_query(ws, f"SELECT DISTINCT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`='{db}'", qry_ctx, debug, True, False)
-                        if ok: nested_add_completer_word(drows)
-
-                        for lr in rows:
-                            for cw in lr: add_completer_word(cw)
-                            for cw in [db + "." + rv for rv in lr]: add_completer_word(cw)
+                        if ok: nested_add_completer_word(drows, debug)
 
                         swapped_db.add(db)
                         continue
@@ -291,7 +291,7 @@ def launch_console():
                     export(rows, cols, outf)
 
                 # feed the table name and field names to completer
-                if qry_tp == util.TP_SHOW_TABLE or qry_tp == util.TP_DESC: nested_add_completer_word(rows)
+                if qry_tp == util.TP_SHOW_TABLE or qry_tp == util.TP_DESC: nested_add_completer_word(rows, debug)
         except KeyboardInterrupt: print()
         except BrokenPipeError:
             print("\nReconnecting...")
