@@ -24,10 +24,15 @@ def nested_add_completer_word(rl: list[list[str]], debug = False):
 def add_completer_word(word, debug = False):
     global completer_candidates
     if debug: print(f"[debug] add completer: {word}")
+    if not word: return
     completer_candidates.add(word)
 
+def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False) -> util.QueryContext:
+    debug = qc.debug
 
-def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False, debug = False) -> util.QueryContext:
+    qc.v_context_code += 1
+    if debug: print(f"[debug] QueryContext.v_context_code: {qc.v_context_code}")
+
     # list database instance, pick one to use
     db = util.get_database_list(sh, debug=debug)
     v_tab_db_id = db.tabs[0].tab_db_id
@@ -119,7 +124,7 @@ def launch_console():
     ap.add_argument('--ws-protocol', type=str, help=f"WebSocket Protocol to use (default: {util.DEFAULT_WS_PROTOCOL})", default=util.DEFAULT_WS_PROTOCOL)
     ap.add_argument('--force-batch-export', help=f"Force to use batch export (offset/limit)", action="store_true")
     ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
-    ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {200})", default=200)
+    ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {500})", default=500)
     args = ap.parse_args()
 
     host = args.host # host (without protocol)
@@ -140,6 +145,7 @@ def launch_console():
     qry_ctx = util.QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
     qry_ctx.v_tab_id = v_tab_id
+    qry_ctx.debug = debug
 
     try:
         while not host: input("Enter host of Omnidb: ")
@@ -161,7 +167,7 @@ def launch_console():
         sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
 
         # list database, pick one to use
-        qry_ctx = select_instance(sh, qry_ctx, select_first=True, debug=debug)
+        qry_ctx = select_instance(sh, qry_ctx, select_first=True)
 
         # connect websocket
         ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
@@ -183,15 +189,10 @@ def launch_console():
     print("Enter '\\reconnect' to reconnect the websocket connection")
     print()
 
-    qry_ctx.v_context_code = 2 # start with two, when we connect websocket, we always send the first msg to server right away
-
     # fetch all schema names for completer
-    qry_ctx.v_context_code += 1
-    ok, _, rows = util.exec_query(ws, "SELECT table_schema, table_name FROM INFORMATION_SCHEMA.TABLES", qry_ctx, debug, True)
-    if ok:
-        for r in rows:
-            add_completer_word(r[0], debug) # SCHEMA
-            add_completer_word(r[0] + "." + r[1], debug) # SCHEMA.TABLE
+    print("Fetching schema names for auto-completion")
+    ok, _, rows = util.exec_query(ws=ws, sql="SHOW DATABASES", qc=qry_ctx, slient=True)
+    if ok: nested_add_completer_word(rows, debug) # feed SCHEMA names
 
     # database names that we have USE(d)
     swapped_db = set()
@@ -202,7 +203,6 @@ def launch_console():
             if cmd == "": continue
             if util.is_exit(cmd): break
 
-            qry_ctx.v_context_code += 1
             batch_export = False
             sql = cmd
 
@@ -225,7 +225,7 @@ def launch_console():
                     batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
 
             if is_change_instance(cmd):
-                qry_ctx = select_instance(sh, qry_ctx, debug=debug)
+                qry_ctx = select_instance(sh, qry_ctx)
                 continue
 
             if is_reconnect(cmd):
@@ -246,44 +246,32 @@ def launch_console():
                 ok, db = parse_use_db(sql)
                 if ok:
                     if not db or db in swapped_db: continue
-
-                    print("Fetching field names for auto-completion")
-                    ok, cols, rows = util.exec_query(ws, f"SHOW TABLES in {db}", qry_ctx, debug, True) # fetch tables names for completer
-                    if ok:
-                        ok, _, drows = util.exec_query(ws, f"SELECT DISTINCT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`='{db}'", qry_ctx, debug, True, False)
-                        if ok: nested_add_completer_word(drows, debug)
-
-                        swapped_db.add(db)
-                        continue
+                    print("Fetching table names for auto-completion")
+                    ok, _, drows = util.exec_query(ws=ws, sql=f"SHOW TABLES IN {db}", qc=qry_ctx, slient=True)
+                    if not ok: continue
+                    for ro in drows:
+                        for r in ro:
+                            add_completer_word(r, debug)
+                            add_completer_word(f"{db}.{r}", debug)
+                    swapped_db.add(db)
+                    continue
 
             if debug: print(f"[debug] preprocessed sql: '{sql}'")
             if batch_export:
                 outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
                 if not outf: outf = "export.xlsx"
 
-                offset = 0
-                acc_cols = []
-                acc_rows = []
-
-                while True:
-                    if sql.endswith(";"): sql = sql[:len(sql) - 1].strip()
-                    offset_sql = sql + f" limit {offset}, {batch_export_limit}"
-                    print(offset_sql)
-
-                    ok, cols, rows = util.exec_query(ws, offset_sql, qry_ctx, debug)
-                    if not ok or len(rows) < 1: break # error or empty page
-
-                    if offset < 1: acc_cols = cols # first page
-                    acc_rows += rows # append rows
-                    offset += batch_export_limit # next page
-
-                    if len(rows) < batch_export_limit:  break # the end of pagination
-                    if batch_export_throttle_ms > 0: time.sleep(batch_export_throttle_ms / 1000) # throttle a bit, not so fast
-
+                ok, acc_cols, acc_rows = util.exec_batch_query(ws=ws,
+                                                               sql=sql,
+                                                               qry_ctx=qry_ctx,
+                                                               page_size=batch_export_limit,
+                                                               throttle_ms=batch_export_throttle_ms,
+                                                               slient=False)
+                if not ok: continue
                 export(acc_rows, acc_cols, outf) # all queries are finished, export them
 
             else:
-                ok, cols, rows = util.exec_query(ws, sql, qry_ctx, debug, False, is_pretty_print)
+                ok, cols, rows = util.exec_query(ws=ws, sql=sql, qc=qry_ctx, slient=False, pretty=is_pretty_print)
                 if not ok: continue
                 if do_export:
                     outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
@@ -291,7 +279,9 @@ def launch_console():
                     export(rows, cols, outf)
 
                 # feed the table name and field names to completer
-                if qry_tp == util.TP_SHOW_TABLE or qry_tp == util.TP_DESC: nested_add_completer_word(rows, debug)
+                if qry_tp == util.TP_SHOW_TABLE: nested_add_completer_word(rows, debug)
+                elif qry_tp == util.TP_DESC:
+                    for ro in rows: add_completer_word(ro[0], debug) # ro[0] is `Field`
         except KeyboardInterrupt: print()
         except BrokenPipeError:
             print("\nReconnecting...")

@@ -230,8 +230,9 @@ def str_width(s: str) -> int:
 class QueryContext:
 
     def __init__(self):
+        self.debug = False
         self.v_db_index = ""
-        self.v_context_code = ""
+        self.v_context_code = 0
         self.v_conn_tab_id = ""
         self.v_tab_id = ""
         self.v_tab_db_id = ""
@@ -242,7 +243,36 @@ def escape(sql: str) -> str:
     return re.sub(escape_pat, r'\1\\"', sql)
 
 
-def exec_query(ws: WebSocket, sql: str, qc: QueryContext, debug = False, slient = False, pretty = False) -> tuple[bool, list[str],list[list[str]]]:
+def exec_batch_query(ws: WebSocket, sql: str, qry_ctx: QueryContext, page_size: int = 400,
+                     throttle_ms: int = 0, slient=False) -> tuple[bool, list[str], list[str]]:
+    ok = True
+    offset = 0
+    acc_cols = []
+    acc_rows = []
+    if sql.endswith(";"): sql = sql[:len(sql) - 1].strip()
+
+    while True:
+        offset_sql = sql + f" limit {offset}, {page_size}"
+        if not slient: print(offset_sql)
+
+        ok, cols, rows = exec_query(ws=ws, sql=offset_sql, qc=qry_ctx, slient=slient, pretty=False)
+        if not ok or len(rows) < 1: break # error or empty page
+
+        if offset < 1: acc_cols = cols # first page
+        acc_rows += rows # append rows
+        offset += page_size # next page
+
+        if len(rows) < page_size:  break # the end of pagination
+        if throttle_ms > 0: time.sleep(throttle_ms / 1000) # throttle a bit, not so fast
+    return ok, acc_cols, acc_rows
+
+
+def exec_query(ws: WebSocket, sql: str, qc: QueryContext, slient = False, pretty = False) -> tuple[bool, list[str],list[list[str]]]:
+    debug = qc.debug
+
+    qc.v_context_code += 1
+    if debug: print(f"[debug] QueryContext.v_context_code: {qc.v_context_code}")
+
     sql = escape(sql)
     if debug: print(f"[debug] executing query: '{sql}', slient: {slient}, pretty: {pretty}")
     start = time.monotonic_ns()
