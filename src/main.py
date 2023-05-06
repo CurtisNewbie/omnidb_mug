@@ -283,7 +283,6 @@ def launch_console():
                     swapped_db.add(db)
                     continue
 
-            if debug: print(f"[debug] preprocessed sql: '{sql}'")
             if batch_export:
                 outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
                 if not outf: outf = "export.xlsx"
