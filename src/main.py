@@ -1,3 +1,4 @@
+import datetime
 import argparse
 import util
 import getpass
@@ -283,9 +284,11 @@ def launch_console():
                     swapped_db.add(db)
                     continue
 
+            def_outf = None
+            if do_export: def_outf = "export_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".xlsx"
             if batch_export:
-                outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
-                if not outf: outf = "export.xlsx"
+                outf = input(f'Please specify where to export (defaults to \'{def_outf}\'): ').strip()
+                if not outf: outf = def_outf
 
                 ok, acc_cols, acc_rows = util.exec_batch_query(ws=ws,
                                                                sql=sql,
@@ -300,8 +303,8 @@ def launch_console():
                 ok, cols, rows = util.exec_query(ws=ws, sql=sql, qc=qry_ctx, slient=False, pretty=is_pretty_print)
                 if not ok: continue
                 if do_export:
-                    outf = input('Please specify where to export (default to \'export.xlsx\'): ').strip()
-                    if not outf: outf = "export.xlsx"
+                    outf = input(f'Please specify where to export (defaults to \'{def_outf}\'): ').strip()
+                    if not outf: outf = def_outf
                     export(rows, cols, outf)
 
                 # feed the table name and field names to completer
