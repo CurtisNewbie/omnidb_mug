@@ -2,11 +2,14 @@ import argparse
 import util
 import getpass
 import os
+import sys
 import re
 import readline # don't remove this, this is for input()
 import time
 from websocket import WebSocket
 import time
+import subprocess
+from os.path import abspath
 
 EXPORT_LEN = len("\export")
 
@@ -26,6 +29,29 @@ def add_completer_word(word, debug = False):
     if debug: print(f"[debug] add completer: {word}")
     if not word: return
     completer_candidates.add(word)
+
+def get_platform():
+    # https://stackoverflow.com/questions/434597/open-document-with-default-os-application-in-python-both-in-windows-and-mac-os
+    if sys.platform == 'linux':
+        try:
+            proc_version = open('/proc/version').read()
+            if 'Microsoft' in proc_version:
+                return 'wsl'
+        except:
+            pass
+    return sys.platform
+
+def open_with_default_app(filename):
+    # https://stackoverflow.com/questions/434597/open-document-with-default-os-application-in-python-both-in-windows-and-mac-os
+    platform = get_platform()
+    if platform == 'darwin':
+        subprocess.call(('open', filename))
+    elif platform in ['win64', 'win32']:
+        os.startfile(filename.replace('/','\\'))
+    elif platform == 'wsl':
+        subprocess.call('cmd.exe /C start'.split() + [filename])
+    else:                                   # linux variants
+        subprocess.call(('xdg-open', filename))
 
 def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False) -> util.QueryContext:
     debug = qc.debug
@@ -86,7 +112,8 @@ def export(rows, cols, outf):
     ep.rows = rows
     ep.cols = cols
     ep.export(outf)
-    print(f"Exported to '{outf}'")
+    print(f"Exported to '{abspath(outf)}'")
+    open_with_default_app(outf)
 
 re_conn_pat = re.compile("^\\\\reconnect.*", re.IGNORECASE)
 def is_reconnect(cmd: str) -> str:
