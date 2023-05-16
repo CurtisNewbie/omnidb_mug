@@ -139,21 +139,8 @@ def completer(text, state):
     if state < len(options): return options[state]
     else: return None
 
-def launch_console():
+def launch_console(args):
     global v_tab_id, v_conn_tab_id
-
-    ap = argparse.ArgumentParser(description="OmniDB Mug By Yongjie.Zhuang", formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument('--host', type=str, help=f"Host", default="")
-    ap.add_argument('-u', '--user', type=str, help=f"User", default="")
-    ap.add_argument('-p', '--password', type=str, help=f"Password", default="")
-    ap.add_argument('-pf', '--passwordfile', type=str, help=f"Password file", default="")
-    ap.add_argument('-d', '--debug', help=f"Enable debug mode (true/false)", action="store_true")
-    ap.add_argument('--http-protocol', type=str, help=f"HTTP Protocol to use (default: {util.DEFAULT_HTTP_PROTOCOL})", default=util.DEFAULT_HTTP_PROTOCOL)
-    ap.add_argument('--ws-protocol', type=str, help=f"WebSocket Protocol to use (default: {util.DEFAULT_WS_PROTOCOL})", default=util.DEFAULT_WS_PROTOCOL)
-    ap.add_argument('--force-batch-export', help=f"Force to use batch export (offset/limit)", action="store_true")
-    ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
-    ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {500})", default=500)
-    args = ap.parse_args()
 
     host = args.host # host (without protocol)
     uname = args.user # username
@@ -322,5 +309,128 @@ def launch_console():
     print("Bye!")
 
 
+def load_script(args) -> list[str]:
+    with open(args.script) as f:
+        return f.readlines()
+
+def launch_script(args):
+    scripts = load_script(args)
+
+    global v_tab_id, v_conn_tab_id
+
+    host = args.host # host (without protocol)
+    uname = args.user # username
+    http_protocol = args.http_protocol # http protocol
+    ws_protocol = args.ws_protocol # websocket protocol
+    force_batch_export = args.force_batch_export # whether to force to use OFFSET,LIMIT to export
+    debug = args.debug # enable debug mode
+
+    util.env_print("Using HTTP Protocol", http_protocol)
+    util.env_print("Using WebSocket Protocol", ws_protocol)
+    util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
+    util.env_print("Debug Mode", debug)
+
+    ws: WebSocket = None
+    qry_ctx = util.QueryContext()
+    qry_ctx.v_conn_tab_id = v_conn_tab_id
+    qry_ctx.v_tab_id = v_tab_id
+    qry_ctx.debug = debug
+
+    try:
+        while not host: input("Enter host of Omnidb: ")
+        util.env_print("Using Host", host)
+
+        while not uname: uname = input("Enter Username: ")
+        util.env_print("Using Username", uname)
+        print()
+
+        # retrieve csrf token first by request '/' path
+        csrf = util.get_csrf_token(host, protocol=http_protocol, debug=debug)
+
+        pw = ""
+        if args.password: pw = args.password
+        elif args.passwordfile: pw = load_password(args.passwordfile)
+        while not pw: pw = getpass.getpass(f"Enter Password for '{uname}': ").strip()
+
+        # login
+        sh = util.login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
+
+        # list database, pick one to use
+        qry_ctx = select_instance(sh, qry_ctx, select_first=True)
+
+        # connect websocket
+        ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
+
+    except KeyboardInterrupt:
+        util.close_ws(ws=ws, debug=debug)
+        print("\nBye!")
+        return
+
+    # execute queries
+    print()
+    print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
+    print("Enter '\\export [SQL]' to export excel files (csv/xlsx/xls)")
+    print("Enter '\\change' to change the connected instance")
+    print("Enter '\\reconnect' to reconnect the websocket connection")
+    print()
+
+    for f in scripts:
+        try:
+            # cmd = input("> ").strip()
+            cmd = f.strip()
+            if cmd == "": continue
+            if util.is_exit(cmd): break
+
+            sql = cmd
+
+            # parse \G
+            is_pretty_print, sql = util.parse_pretty_print(sql)
+
+            # parse export command
+            do_export = is_export_cmd(cmd)
+            if do_export: continue # export command is not supported
+
+            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
+            qry_tp: int = util.guess_qry_type(sql)
+
+            if is_change_instance(cmd):
+                qry_ctx = select_instance(sh, qry_ctx)
+                continue
+
+            if is_reconnect(cmd): continue # \reconnect not supported
+
+            if debug: print(f"[debug] sql: '{sql}'")
+
+            if qry_tp == util.TP_USE_DB: continue # USE `mydb` is not supported
+
+            print(f"Executing '{sql}'")
+            util.exec_query(ws=ws, sql=sql, qc=qry_ctx, slient=False, pretty=is_pretty_print)
+
+        except KeyboardInterrupt: return
+        except BrokenPipeError:
+            print("\nDisconnected...")
+            return
+
+    # disconnect websocket
+    util.close_ws(ws)
+    print("Bye!")
+
 if __name__ == "__main__":
-    launch_console()
+    ap = argparse.ArgumentParser(description="OmniDB Mug By Yongjie.Zhuang", formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument('--host', type=str, help=f"Host", default="")
+    ap.add_argument('-u', '--user', type=str, help=f"User", default="")
+    ap.add_argument('-p', '--password', type=str, help=f"Password", default="")
+    ap.add_argument('-pf', '--passwordfile', type=str, help=f"Password file", default="")
+    ap.add_argument('-d', '--debug', help=f"Enable debug mode (true/false)", action="store_true")
+    ap.add_argument('--http-protocol', type=str, help=f"HTTP Protocol to use (default: {util.DEFAULT_HTTP_PROTOCOL})", default=util.DEFAULT_HTTP_PROTOCOL)
+    ap.add_argument('--ws-protocol', type=str, help=f"WebSocket Protocol to use (default: {util.DEFAULT_WS_PROTOCOL})", default=util.DEFAULT_WS_PROTOCOL)
+    ap.add_argument('--force-batch-export', help=f"Force to use batch export (offset/limit)", action="store_true")
+    ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
+    ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {500})", default=500)
+    ap.add_argument('--script', type=str, help=f"Path to scripting file", default="")
+    args = ap.parse_args()
+
+    if args.script:
+        launch_script(args)
+    else:
+        launch_console(args)

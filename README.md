@@ -29,6 +29,18 @@ More **Special Commands**:
 - `\change` to change the instance used
 - `\export [SQL]` to export the result of query as an excel file
 
+## Scripting
+
+Scripting is also supported with the `--script YOUR_SCRIPTING_FILE`. The file should contain a bunch of SQLs that you want to execute one by one.
+
+For example:
+
+```sql
+SELECT * FROM mydb.mytable WHERE id = 1;
+SELECT * FROM mydb.mytable WHERE id = 2;
+SELECT * FROM mydb.mytable WHERE id = 3;
+```
+
 ## Demo
 
 <img src="demo/demo1.jpeg" alt="demo1" width="600">
