@@ -322,12 +322,10 @@ def launch_script(args):
     uname = args.user # username
     http_protocol = args.http_protocol # http protocol
     ws_protocol = args.ws_protocol # websocket protocol
-    force_batch_export = args.force_batch_export # whether to force to use OFFSET,LIMIT to export
     debug = args.debug # enable debug mode
 
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
-    util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
     util.env_print("Debug Mode", debug)
 
     ws: WebSocket = None
@@ -367,46 +365,32 @@ def launch_script(args):
         return
 
     # execute queries
-    print()
-    print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
-    print("Enter '\\export [SQL]' to export excel files (csv/xlsx/xls)")
-    print("Enter '\\change' to change the connected instance")
-    print("Enter '\\reconnect' to reconnect the websocket connection")
-    print()
+    print("\nSwitching to scripting mode\n")
 
-    for f in scripts:
+    for i in range(len(scripts)):
         try:
-            # cmd = input("> ").strip()
-            cmd = f.strip()
+            cmd = scripts[i].strip()
             if cmd == "": continue
             if util.is_exit(cmd): break
+            if is_export_cmd(cmd): continue  # export command is not supported
+            if is_change_instance(cmd): continue # change instance not supported
+            if is_reconnect(cmd): continue # \reconnect not supported
 
             sql = cmd
 
             # parse \G
             is_pretty_print, sql = util.parse_pretty_print(sql)
 
-            # parse export command
-            do_export = is_export_cmd(cmd)
-            if do_export: continue # export command is not supported
-
             # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
             qry_tp: int = util.guess_qry_type(sql)
-
-            if is_change_instance(cmd):
-                qry_ctx = select_instance(sh, qry_ctx)
-                continue
-
-            if is_reconnect(cmd): continue # \reconnect not supported
+            if qry_tp == util.TP_USE_DB: continue # USE `mydb` is not supported
 
             if debug: print(f"[debug] sql: '{sql}'")
 
-            if qry_tp == util.TP_USE_DB: continue # USE `mydb` is not supported
-
-            print(f"Executing '{sql}'")
+            print(f"> [{i+1}] Executing - {sql}")
             util.exec_query(ws=ws, sql=sql, qc=qry_ctx, slient=False, pretty=is_pretty_print)
 
-        except KeyboardInterrupt: return
+        except KeyboardInterrupt: break
         except BrokenPipeError:
             print("\nDisconnected...")
             return
