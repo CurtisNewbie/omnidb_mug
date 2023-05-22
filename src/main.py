@@ -332,6 +332,7 @@ def run_scripts(args):
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Debug Mode", debug)
+    util.env_print("Log File", args.log)
 
     ws: WebSocket = None
     qry_ctx = util.QueryContext()
