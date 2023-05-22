@@ -318,7 +318,7 @@ def load_script(args) -> list[str]:
     with open(args.script) as f:
         return f.readlines()
 
-def launch_script(args):
+def run_scripts(args):
     scripts = load_script(args)
 
     global v_tab_id, v_conn_tab_id
@@ -372,6 +372,10 @@ def launch_script(args):
     # execute queries
     print("\nSwitching to scripting mode\n")
 
+    logf = None
+    if args.log: logf = open(mode='a', file=args.log, buffering=1)
+    qry_ctx.logf = logf
+
     for i in range(len(scripts)):
         try:
             cmd = scripts[i].strip()
@@ -420,7 +424,5 @@ if __name__ == "__main__":
     ap.add_argument('--log', type=str, help=f"Path to log file (only SQLs are logged)", default="")
     args = ap.parse_args()
 
-    if args.script:
-        launch_script(args)
-    else:
-        launch_console(args)
+    if args.script: run_scripts(args)
+    else: launch_console(args)
