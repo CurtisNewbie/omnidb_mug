@@ -6,6 +6,15 @@ Simple command line console tool for OmniDB.
 python3 -m pip install -r requirements.txt
 
 python3 src/main.py
+
+# or you can use an alias to pass some environment configuration
+alias mug="python3 /omnidb_mug/src/main.py --force-batch-export --user 'myname' --host 'myomnidb' --log '/tmp/ndb.log'"
+
+# then simply type `ndb` to enter interactive mode
+mug
+
+# or scripting mode
+mug --script myscript.sql
 ```
 
 - Omnidb >= 2.15: https://github.com/OmniDB/OmniDB/tree/2.15.0
