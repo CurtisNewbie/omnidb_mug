@@ -387,6 +387,7 @@ def run_scripts(args):
             if is_reconnect(cmd): continue # \reconnect not supported
 
             sql = cmd
+            if sql.startswith("--"): continue # commented
 
             # parse \G
             is_pretty_print, sql = util.parse_pretty_print(sql)
@@ -397,7 +398,7 @@ def run_scripts(args):
 
             if debug: print(f"[debug] sql: '{sql}'")
 
-            print(f"> [{i+1}] Executing - {sql}")
+            print(f"> Executing - {sql}")
             util.exec_query(ws=ws, sql=sql, qc=qry_ctx, slient=False, pretty=is_pretty_print)
 
         except KeyboardInterrupt: break
