@@ -155,6 +155,7 @@ def launch_console(args):
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
     util.env_print("Debug Mode", debug)
+    util.env_print("Log File", args.log)
 
     ws: WebSocket = None
     qry_ctx = util.QueryContext()
@@ -211,6 +212,10 @@ def launch_console(args):
 
     # database names that we have USE(d)
     swapped_db = set()
+
+    logf = None
+    if args.log: logf = open(mode='a', file=args.log, buffering=1)
+    qry_ctx.logf = logf
 
     while True:
         try:
@@ -304,8 +309,8 @@ def launch_console(args):
             ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
             print("Reconnected, please try again")
 
-    # disconnect websocket
-    util.close_ws(ws)
+    util.close_ws(ws) # disconnect websocket
+    if logf != None: logf.close() # close log file
     print("Bye!")
 
 
@@ -412,6 +417,7 @@ if __name__ == "__main__":
     ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
     ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {500})", default=500)
     ap.add_argument('--script', type=str, help=f"Path to scripting file", default="")
+    ap.add_argument('--log', type=str, help=f"Path to log file (only SQLs are logged)", default="")
     args = ap.parse_args()
 
     if args.script:

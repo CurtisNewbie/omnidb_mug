@@ -1,9 +1,11 @@
+import io
 import sys
 import time
 import unicodedata
 import requests
 import json
 import re
+import datetime
 from websocket import create_connection, WebSocket
 
 DEFAULT_HTTP_PROTOCOL = "https://"
@@ -236,6 +238,7 @@ class QueryContext:
         self.v_conn_tab_id = ""
         self.v_tab_id = ""
         self.v_tab_db_id = ""
+        self.logf : io.TextIOWrapper = None
 
 
 escape_pat = re.compile(r'([^\\])(")')
@@ -275,6 +278,8 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, slient = False, pretty
 
     sql = escape(sql)
     if debug: print(f"[debug] executing query: '{sql}', slient: {slient}, pretty: {pretty}")
+    if qc.logf: qc.logf.write(f"\n{datetime.datetime.now()} - {sql}")
+
     start = time.monotonic_ns()
     msg = f'{{"v_code":1,"v_context_code":{qc.v_context_code},"v_error":false,"v_data":{{"v_sql_cmd":"{sql}","v_sql_save":"{sql}","v_cmd_type":null,"v_db_index":{qc.v_db_index},"v_conn_tab_id":"{qc.v_conn_tab_id}","v_tab_id":"{qc.v_tab_id}","v_tab_db_id":{qc.v_tab_db_id},"v_mode":0,"v_all_data":false,"v_log_query":true,"v_tab_title":"Query","v_autocommit":true}}}}'
 
