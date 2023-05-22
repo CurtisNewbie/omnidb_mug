@@ -5,6 +5,10 @@ Simple command line console tool for OmniDB.
 ```sh
 python3 -m pip install -r requirements.txt
 
+# for exporting excel files
+(git clone https://github.com/CurtisNewbie/excelparser.git; cd excelparser; python3 -m pip install .)
+
+# start omnidb_mug
 python3 src/main.py
 
 # or you can use an alias to pass some environment configuration
