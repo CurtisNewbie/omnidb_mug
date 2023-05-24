@@ -41,6 +41,7 @@ More **Special Commands**:
 - `\reconnect` to reconnect the websocket
 - `\change` to change the instance used
 - `\export [SQL]` to export the result of query as an excel file
+- `\debug` to enable/disable debug mode (only works in interactive session)
 
 ## Scripting
 

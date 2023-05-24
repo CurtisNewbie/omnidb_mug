@@ -128,6 +128,10 @@ exp_cmd_pat = re.compile("^\\\\export.*", re.IGNORECASE)
 def is_export_cmd(cmd: str) -> str:
     return exp_cmd_pat.match(cmd)  # cmd is trimmed already
 
+debug_cmd_pat = re.compile("^\\\\debug.*", re.IGNORECASE)
+def is_debug(cmd: str) -> str:
+    return debug_cmd_pat.match(cmd)  # cmd is trimmed already
+
 def load_password(pf: str) -> str:
     with open(pf) as f: return f.read().strip()
 
@@ -203,6 +207,7 @@ def launch_console(args):
     print("Enter '\\export [SQL]' to export results as an excel file")
     print("Enter '\\change' to change the connected instance")
     print("Enter '\\reconnect' to reconnect the websocket connection")
+    print("Enter '\\debug' to enable/disable debug mode")
     print()
 
     # fetch all schema names for completer
@@ -228,6 +233,12 @@ def launch_console(args):
 
             # parse \G
             is_pretty_print, sql = util.parse_pretty_print(sql)
+
+            if is_debug(cmd):
+                pre = "Disabled" if qry_ctx.debug else "Enabled"
+                print(f"{pre} debug mode")
+                qry_ctx.debug = True
+                continue
 
             # parse export command
             do_export = is_export_cmd(cmd)
