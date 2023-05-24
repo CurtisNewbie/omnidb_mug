@@ -203,7 +203,7 @@ def launch_console(args):
 
     # execute queries
     print()
-    print("Switching to interactive mode, enter 'quit()' or 'quit' or 'exit' to exit")
+    print("Switching to interactive mode, enter '\quit' to exit")
     print("Enter '\\export [SQL]' to export results as an excel file")
     print("Enter '\\change' to change the connected instance")
     print("Enter '\\reconnect' to reconnect the websocket connection")
