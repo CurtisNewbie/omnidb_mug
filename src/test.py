@@ -205,5 +205,17 @@ class Tester(unittest.TestCase):
         assert util.is_exit("\exit")
 
 
+    def test_extract_schema_table(self):
+        sql = 'SELECT * FROM mydb.table where name = "gucci" limit 10'
+        schema, table = util.extract_schema_table(sql)
+        assert schema == 'mydb'
+        assert table == 'table'
+
+        sql = 'SELECT * FROM mydb.table'
+        schema, table = util.extract_schema_table(sql)
+        assert schema == 'mydb'
+        assert table == 'table'
+
+
 if __name__ == "__main__":
   unittest.main()

@@ -46,17 +46,55 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
-_is_select = re.compile(r"^select .* from.*", re.IGNORECASE)
-_is_show_table = re.compile(r"^show +tables.*", re.IGNORECASE)
-_is_show_create_table = re.compile(r"^show +create +table.*", re.IGNORECASE)
-_is_desc = re.compile(r"^desc .*", re.IGNORECASE)
-_is_use_db = re.compile(r"^use .*", re.IGNORECASE)
+def quote_list(l: list[str]):
+    j = []
+    for i in range(len(l)): j.append(f"'{l[i]}'")
+    return j
+
+
+def extract_schema_table(sql: str) -> tuple[str]:
+    res = re.search(r"^select .* from ([^ \.]+).([^ \.;]+).*$", sql, re.IGNORECASE)
+    return res.group(1), res.group(2)
+
+
+def filter_by_idx(l: list[str], idx: set[int]) -> list[str]:
+    r = []
+    for i in range(len(l)):
+        if i in idx: continue
+        r.append(l[i])
+    return r
+
+
+def collect_filter_idx(l: list[str], excl: set[str]) -> set[int]:
+    idx = set()
+    if not excl: return idx
+    for i in range(len(l)):
+        if l[i] in excl: idx.add(i)
+    return idx
+
+
+def dump_insert_sql(sql: str, cols: list[str], rows: list[list[str]], excl: set[str] = None):
+    schema, table = extract_schema_table(sql)
+
+    filter_idx =  collect_filter_idx(cols, excl)
+    joined_cols = ",".join(filter_by_idx(cols, filter_idx))
+
+    qrows = []
+    for r in rows:
+        fr = filter_by_idx(r, filter_idx)
+        qrows.append("(" + ",".join(quote_list(fr)) + ")")
+
+    joined_rows = ",\n\t".join(qrows)
+    sql = f"INSERT INTO {schema}.{table} ({joined_cols}) VALUES \n\t{joined_rows};"
+    print(sql)
+
+
 def guess_qry_type(sql: str) -> int:
-    if _is_select.match(sql): return TP_SELECT
-    if _is_show_table.match(sql): return TP_SHOW_TABLE
-    if _is_desc.match(sql): return TP_DESC
-    if _is_show_create_table.match(sql): return TP_SHOW_CREATE_TABLE
-    if _is_use_db.match(sql): return TP_USE_DB
+    if re.match(r"^select .* from.*", sql, re.IGNORECASE): return TP_SELECT
+    if re.match(r"^show +tables.*", sql, re.IGNORECASE): return TP_SHOW_TABLE
+    if re.match(r"^desc .*", sql, re.IGNORECASE): return TP_DESC
+    if re.match(r"^show +create +table.*", sql, re.IGNORECASE): return TP_SHOW_CREATE_TABLE
+    if re.match(r"^use .*", sql, re.IGNORECASE): return TP_USE_DB
     return TP_OTHER
 
 _slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IGNORECASE)

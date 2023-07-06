@@ -13,6 +13,7 @@ import subprocess
 from os.path import abspath
 
 EXPORT_LEN = len("\export")
+DUMP_INSERT_LEN = len("\insert")
 
 # TODO these doesn't seem to be important :D
 v_tab_id = "conn_tabs_tab4_tabs_tab1"
@@ -124,6 +125,9 @@ chg_inst_pat = re.compile("^\\\\change.*", re.IGNORECASE)
 def is_change_instance(cmd: str) -> str:
     return chg_inst_pat.match(cmd)  # cmd is trimmed already
 
+def is_dump_insert_cmd(cmd: str) -> str:
+    return re.match("^\\\\insert.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+
 exp_cmd_pat = re.compile("^\\\\export.*", re.IGNORECASE)
 def is_export_cmd(cmd: str) -> str:
     return exp_cmd_pat.match(cmd)  # cmd is trimmed already
@@ -154,12 +158,15 @@ def launch_console(args):
     force_batch_export = args.force_batch_export # whether to force to use OFFSET,LIMIT to export
     debug = args.debug # enable debug mode
     batch_export_throttle_ms = args.batch_export_throttle_ms # sleep time in ms for each batch export
+    insert_excl = args.insert_excl.strip()
+    insert_excl_cols: set[str] = set(insert_excl.split(","))
 
     util.env_print("Using HTTP Protocol", http_protocol)
     util.env_print("Using WebSocket Protocol", ws_protocol)
     util.env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
     util.env_print("Debug Mode", debug)
     util.env_print("Log File", args.log)
+    util.env_print("Excluded Columns for INSERT Dump", insert_excl)
 
     ws: WebSocket = None
     qry_ctx = util.QueryContext()
@@ -240,10 +247,17 @@ def launch_console(args):
                 qry_ctx.debug = True
                 continue
 
+            # TODO refactor these parse command stuff :(
+
             # parse export command
             do_export = is_export_cmd(cmd)
             if do_export:
                 sql: str = sql[EXPORT_LEN:].strip()
+                if sql == "": continue
+
+            dump_insert = is_dump_insert_cmd(cmd)
+            if dump_insert:
+                sql: str = sql[DUMP_INSERT_LEN:].strip()
                 if sql == "": continue
 
             # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
@@ -309,6 +323,8 @@ def launch_console(args):
                     outf = input(f'Please specify where to export (defaults to \'{def_outf}\'): ').strip()
                     if not outf: outf = def_outf
                     export(rows, cols, outf)
+                elif qry_tp == util.TP_SELECT and dump_insert:
+                    util.dump_insert_sql(sql, cols, rows, insert_excl_cols)
 
                 # feed the table name and field names to completer
                 if qry_tp == util.TP_SHOW_TABLE: nested_add_completer_word(rows, debug)
@@ -435,6 +451,7 @@ if __name__ == "__main__":
     ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {1000})", default=1000)
     ap.add_argument('--script', type=str, help=f"Path to scripting file", default="")
     ap.add_argument('--log', type=str, help=f"Path to log file (only SQLs are logged)", default="")
+    ap.add_argument('--insert-excl', type=str, help=f"Exclude columns when trying to dump INSERT sqls (delimited by \',\')", default="")
     args = ap.parse_args()
 
     if args.script: run_scripts(args)
