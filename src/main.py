@@ -121,19 +121,26 @@ def export(rows, cols, outf):
     open_with_default_app(outf)
 
 
-def is_reconnect(cmd: str) -> str:
-    return re.match("^\\\\reconnect.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+def is_reconnect(cmd: str) -> bool:
+    return re.match("^\\\\reconnect.*", cmd, re.IGNORECASE)
 
 
-def is_change_instance(cmd: str) -> str:
+def is_change_instance(cmd: str) -> bool:
     return re.match("^\\\\change.*", cmd, re.IGNORECASE)  # cmd is trimmed already
 
-def is_dump_insert_cmd(cmd: str) -> str:
-    return re.match("^\\\\insert.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+
+def is_dump_insert_cmd(cmd: str) -> tuple[bool, str]:
+    m = re.match("^\\\\insert(.*)", cmd, re.IGNORECASE)  # cmd is trimmed already
+    if not m:
+       return False, ""
+    return True, m.group(1).strip()
 
 
-def is_export_cmd(cmd: str) -> str:
-    return re.match("^\\\\export.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+def is_export_cmd(cmd: str) -> tuple[bool, str]:
+    m = re.match("^\\\\export(.*)", cmd, re.IGNORECASE)  # cmd is trimmed already
+    if not m:
+       return False, ""
+    return True, m.group(1).strip()
 
 
 def is_debug(cmd: str) -> str:
@@ -253,32 +260,21 @@ def launch_console(args):
                 continue
 
             # TODO refactor these parse command stuff :(
-
-            # parse export command
-            do_export = is_export_cmd(cmd)
-            if do_export:
-                sql: str = sql[EXPORT_LEN:].strip()
+            do_export, export_sql = is_export_cmd(cmd)
+            if do_export: # parse \export command
+                sql = export_sql
                 if sql == "": continue
 
-            dump_insert = is_dump_insert_cmd(cmd)
-            if dump_insert:
-                sql: str = sql[DUMP_INSERT_LEN:].strip()
+            dump_insert, dump_sql = is_dump_insert_cmd(cmd)
+            if dump_insert: # parse \insert command
+                sql = dump_sql
                 if sql == "": continue
 
-            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
-            qry_tp: int = util.guess_qry_type(sql)
-
-            # is export & select
-            if do_export and qry_tp == util.TP_SELECT:
-                if force_batch_export: batch_export = True
-                elif not util.query_has_limit(sql):
-                    batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
-
-            if is_change_instance(cmd):
+            if is_change_instance(cmd): # parse \change command
                 qry_ctx = select_instance(sh, qry_ctx)
                 continue
 
-            if is_reconnect(cmd):
+            if is_reconnect(cmd): # parse \reconnect command
                 print("Reconnecting...")
                 try:
                     ws.close()
@@ -289,6 +285,15 @@ def launch_console(args):
                 ws = util.ws_connect(sh, host, debug=debug, protocol=ws_protocol)
                 print("Reconnected")
                 continue
+
+            # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
+            qry_tp: int = util.guess_qry_type(sql)
+
+            # is export & select
+            if do_export and qry_tp == util.TP_SELECT:
+                if force_batch_export: batch_export = True
+                elif not util.query_has_limit(sql):
+                    batch_export = input('Batch export using offset/limit? [y/n] ').strip().lower() == 'y'
 
             if debug: print(f"[debug] sql: '{sql}'")
 
