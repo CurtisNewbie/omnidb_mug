@@ -97,10 +97,7 @@ def guess_qry_type(sql: str) -> int:
     if re.match(r"^use .*", sql, re.IGNORECASE): return TP_USE_DB
     return TP_OTHER
 
-_slt_sql_pat = re.compile(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", re.IGNORECASE)
-_show_tb_pat = re.compile(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", re.IGNORECASE)
-_show_crt_tb_pat = re.compile(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
-_desc_tb_pat = re.compile(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", re.IGNORECASE)
+
 def auto_complete_db(sql: str, database: str) -> str:
     '''
     TODO: deprecated, it's not very useful, since it only supports simple queries
@@ -111,28 +108,28 @@ def auto_complete_db(sql: str, database: str) -> str:
     sql = sql.strip()
 
     completed = False
-    m = _slt_sql_pat.match(sql)
+    m = re.match(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", sql, re.IGNORECASE)
     if m:
         open, close = m.span(1)
         sql = insert_db_name(sql, database, open, close)
         completed = True
 
     if not completed:
-        m = _show_tb_pat.match(sql)
+        m = re.match(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", sql, re.IGNORECASE)
         if m:
             open, close = m.span(1)
             sql = sql[: open] + f" in {database}" + sql[close:]
             completed = True
 
     if not completed:
-        m = _show_crt_tb_pat.match(sql)
+        m = re.match(r"^show +create +table +([`0-9a-zA-Z_]+) *;? *$", sql, re.IGNORECASE)
         if m:
             open, close = m.span(1)
             sql = insert_db_name(sql, database, open, close)
             completed = True
 
     if not completed:
-        m = _desc_tb_pat.match(sql)
+        m = re.match(r"^desc +(\.?[`0-9a-zA-Z_]+) *;? *$", sql, re.IGNORECASE)
         if m:
             open, close = m.span(1)
             sql = insert_db_name(sql, database, open, close)
@@ -142,9 +139,8 @@ def auto_complete_db(sql: str, database: str) -> str:
     return sql
 
 
-_pretty_print_pat = re.compile(r"^.*(\\G) *;?$", re.IGNORECASE)
 def parse_pretty_print(sql: str) -> tuple[bool, str]:
-    m = _pretty_print_pat.match(sql)
+    m = re.match(r"^.*(\\G) *;?$", sql, re.IGNORECASE)
     if not m: return False, sql
 
     open, close = m.span(1)
@@ -161,19 +157,16 @@ def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
     return sql
 
 
-is_show_crt_tb_pat = re.compile(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", re.IGNORECASE)
 def is_show_create_table(sql: str) -> bool:
-    return is_show_crt_tb_pat.match(sql)
+    return re.match(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", sql, re.IGNORECASE)
 
 
-is_select_pat = re.compile(r"^select.*$", re.IGNORECASE)
 def is_select(cmd: str) -> bool:
-    return is_select_pat.match(cmd)
+    return re.match(r"^select.*$", cmd, re.IGNORECASE)
 
 
-exit_pat = re.compile(r"^(?:quit|exit|\\quit|\\exit)(?:|\(\))$", re.IGNORECASE)
 def is_exit(cmd: str) -> bool:
-    return exit_pat.match(cmd)
+    return re.match(r"^(?:quit|exit|\\quit|\\exit)(?:|\(\))$", cmd, re.IGNORECASE)
 
 
 def env_print(key, value):
@@ -279,9 +272,8 @@ class QueryContext:
         self.logf : io.TextIOWrapper = None
 
 
-escape_pat = re.compile(r'([^\\])(")')
 def escape(sql: str) -> str:
-    return re.sub(escape_pat, r'\1\\"', sql)
+    return re.sub(r'([^\\])(")', r'\1\\"', sql)
 
 
 def exec_batch_query(ws: WebSocket, sql: str, qry_ctx: QueryContext, page_size: int = 400,

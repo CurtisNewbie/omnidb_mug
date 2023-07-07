@@ -22,15 +22,18 @@ v_conn_tab_id = "conn_tabs_tab4"
 # auto complete words
 completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
 
+
 def nested_add_completer_word(rl: list[list[str]], debug = False):
     for r in rl:
         for v in r: add_completer_word(v, debug)
+
 
 def add_completer_word(word, debug = False):
     global completer_candidates
     if debug: print(f"[debug] add completer: {word}")
     if not word: return
     completer_candidates.add(word)
+
 
 def get_platform():
     # https://stackoverflow.com/questions/434597/open-document-with-default-os-application-in-python-both-in-windows-and-mac-os
@@ -43,6 +46,7 @@ def get_platform():
             pass
     return sys.platform
 
+
 def open_with_default_app(filename):
     # https://stackoverflow.com/questions/434597/open-document-with-default-os-application-in-python-both-in-windows-and-mac-os
     platform = get_platform()
@@ -54,6 +58,7 @@ def open_with_default_app(filename):
         subprocess.call('cmd.exe /C start'.split() + [filename])
     else:                                   # linux variants
         subprocess.call(('xdg-open', filename))
+
 
 def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = False) -> util.QueryContext:
     debug = qc.debug
@@ -97,12 +102,10 @@ def select_instance(sh: util.OSession, qc: util.QueryContext, select_first = Fal
     return qc
 
 
-use_db_sql_pat =  re.compile(r"^use *([0-9a-zA-Z_]*) *;?$", re.IGNORECASE)
 def parse_use_db(sql: str) -> tuple[bool, str]:
-    m = use_db_sql_pat.match(sql)
+    m = re.match(r"^use *([0-9a-zA-Z_]*) *;?$", sql, re.IGNORECASE)
     if m:
         use_database = m.group(1).strip()
-        # print(f"Using databse: '{use_database}'")
         return True, use_database
     return False, None
 
@@ -117,24 +120,25 @@ def export(rows, cols, outf):
     print(f"Exported to '{abspath(outf)}'")
     open_with_default_app(outf)
 
-re_conn_pat = re.compile("^\\\\reconnect.*", re.IGNORECASE)
-def is_reconnect(cmd: str) -> str:
-    return re_conn_pat.match(cmd)  # cmd is trimmed already
 
-chg_inst_pat = re.compile("^\\\\change.*", re.IGNORECASE)
+def is_reconnect(cmd: str) -> str:
+    return re.match("^\\\\reconnect.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+
+
 def is_change_instance(cmd: str) -> str:
-    return chg_inst_pat.match(cmd)  # cmd is trimmed already
+    return re.match("^\\\\change.*", cmd, re.IGNORECASE)  # cmd is trimmed already
 
 def is_dump_insert_cmd(cmd: str) -> str:
     return re.match("^\\\\insert.*", cmd, re.IGNORECASE)  # cmd is trimmed already
 
-exp_cmd_pat = re.compile("^\\\\export.*", re.IGNORECASE)
-def is_export_cmd(cmd: str) -> str:
-    return exp_cmd_pat.match(cmd)  # cmd is trimmed already
 
-debug_cmd_pat = re.compile("^\\\\debug.*", re.IGNORECASE)
+def is_export_cmd(cmd: str) -> str:
+    return re.match("^\\\\export.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+
+
 def is_debug(cmd: str) -> str:
-    return debug_cmd_pat.match(cmd)  # cmd is trimmed already
+    return re.match("^\\\\debug.*", cmd, re.IGNORECASE)  # cmd is trimmed already
+
 
 def load_password(pf: str) -> str:
     with open(pf) as f: return f.read().strip()
@@ -146,6 +150,7 @@ def completer(text, state):
     options = [cmd for cmd in completer_candidates if cmd.startswith(text)]
     if state < len(options): return options[state]
     else: return None
+
 
 def launch_console(args):
     global v_tab_id, v_conn_tab_id
@@ -344,6 +349,7 @@ def launch_console(args):
 def load_script(args) -> list[str]:
     with open(args.script) as f:
         return f.readlines()
+
 
 def run_scripts(args):
     scripts = load_script(args)
