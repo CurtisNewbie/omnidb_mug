@@ -46,9 +46,16 @@ class OSession:
         self.cookie = f"omnidb_sessionid={self.sessionid}; omnidb_csrftoken={csrf_token}"
 
 
+def escape_quote(s: str, quote: str = "'", escape: str = '\\') -> str:
+    '''
+    Escape quote with \\ prefix
+    '''
+    return s.replace(quote, f'{escape}{quote}')
+
+
 def quote_list(l: list[str]):
     j = []
-    for i in range(len(l)): j.append(f"'{l[i]}'")
+    for i in range(len(l)): j.append(f"'{escape_quote(l[i])}'")
     return j
 
 
@@ -259,6 +266,7 @@ def str_width(s: str) -> int:
         w = unicodedata.east_asian_width(s[i])
         l += 2 if w in ['W', 'F', 'A'] else 1
     return l
+
 
 class QueryContext:
 
