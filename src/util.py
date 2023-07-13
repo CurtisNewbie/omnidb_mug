@@ -105,9 +105,9 @@ def guess_qry_type(sql: str) -> int:
     return TP_OTHER
 
 
-def auto_complete_db(sql: str, database: str) -> str:
+def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
     '''
-    TODO: deprecated, it's not very useful, since it only supports simple queries
+    Auto complete schema names for simple queries
     '''
     start = time.monotonic_ns()
     if not database: return sql
@@ -115,7 +115,7 @@ def auto_complete_db(sql: str, database: str) -> str:
     sql = sql.strip()
 
     completed = False
-    m = re.match(r"^select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", sql, re.IGNORECASE)
+    m = re.match(r"^(?:explain)? *select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", sql, re.IGNORECASE)
     if m:
         open, close = m.span(1)
         sql = insert_db_name(sql, database, open, close)
@@ -142,7 +142,7 @@ def auto_complete_db(sql: str, database: str) -> str:
             sql = insert_db_name(sql, database, open, close)
             completed = True
 
-    print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.3f}ms): {sql}")
+    if benchmark and completed: print(f"Auto-completed ({(time.monotonic_ns() - start) / 1e6:.3f}ms): {sql}")
     return sql
 
 

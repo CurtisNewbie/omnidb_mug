@@ -63,6 +63,10 @@ class Tester(unittest.TestCase):
         completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name = "gucci" limit 10'
 
+        sql = 'EXPLAIN SELECT * FROM table where name = "gucci" limit 10'
+        completed = util.auto_complete_db(sql, db)
+        assert completed == 'EXPLAIN SELECT * FROM my_db.table where name = "gucci" limit 10'
+
         sql = 'SELECT * FROM table where name in ("gucci", "juice") limit 10'
         completed = util.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name in ("gucci", "juice") limit 10'

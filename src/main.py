@@ -236,6 +236,10 @@ def launch_console(args):
 
     # database names that we have USE(d)
     swapped_db = set()
+    curr_db = ""
+
+    # warmup auto_complete_db, initialized all the regexp
+    util.auto_complete_db("WARMUP", "NONE", False)
 
     logf = None
     if args.log: logf = open(mode='a', file=args.log, buffering=1)
@@ -243,7 +247,7 @@ def launch_console(args):
 
     while True:
         try:
-            cmd = input("> ").strip()
+            cmd = input(f"({curr_db}) > " if curr_db else "> ").strip()
             if cmd == "": continue
             if util.is_exit(cmd): break
 
@@ -300,6 +304,7 @@ def launch_console(args):
             if qry_tp == util.TP_USE_DB: # USE `mydb`
                 ok, db = parse_use_db(sql)
                 if ok:
+                    curr_db = db
                     if not db or db in swapped_db: continue
                     print("Fetching table names for auto-completion")
                     ok, _, drows = util.exec_query(ws=ws, sql=f"SHOW TABLES IN {db}", qc=qry_ctx, slient=True)
@@ -310,6 +315,9 @@ def launch_console(args):
                             add_completer_word(f"{db}.{r}", debug)
                     swapped_db.add(db)
                     continue
+
+            # complete schema name for simple queries
+            if curr_db: sql = util.auto_complete_db(sql, db)
 
             def_outf = None
             if do_export: def_outf = "export_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".xlsx"
