@@ -428,7 +428,8 @@ def run_scripts(args):
             cmd = scripts[i].strip()
             if cmd == "": continue
             if util.is_exit(cmd): break
-            if is_export_cmd(cmd): continue  # export command is not supported
+            export, _ = is_export_cmd(cmd)
+            if export: continue  # export command is not supported
             if is_change_instance(cmd): continue # change instance not supported
             if is_reconnect(cmd): continue # \reconnect not supported
 
