@@ -263,6 +263,7 @@ def launch_console(args):
                 pre = "Disabled" if qry_ctx.debug else "Enabled"
                 print(f"{pre} debug mode")
                 qry_ctx.debug = True
+                debug = True
                 continue
 
             # TODO refactor these parse command stuff :(
@@ -294,6 +295,7 @@ def launch_console(args):
 
             # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
             qry_tp: int = util.guess_qry_type(sql)
+            if debug: print(f"[debug] qry_type: {qry_tp}")
 
             # is export & select
             if do_export and qry_tp == util.TP_SELECT:
@@ -347,7 +349,15 @@ def launch_console(args):
                     util.dump_insert_sql(sql, cols, rows, insert_excl_cols)
 
                 # feed the table name and field names to completer
-                if qry_tp == util.TP_SHOW_TABLE: nested_add_completer_word(rows, debug)
+                if qry_tp == util.TP_SHOW_TABLE:
+                    flatten_rows = util.flatten(rows)
+                    for v in flatten_rows:
+                        add_completer_word(v, debug)
+
+                    _db: str = util.parse_show_tables_in(sql, curr_db, debug)
+                    if not _db: _db = curr_db
+                    for v in flatten_rows:
+                        add_completer_word(f"{_db}.{v}", debug)
                 elif qry_tp == util.TP_DESC:
                     for ro in rows: add_completer_word(ro[0], debug) # ro[0] is `Field`
         except KeyboardInterrupt: print()

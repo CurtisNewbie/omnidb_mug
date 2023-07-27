@@ -95,6 +95,11 @@ def dump_insert_sql(sql: str, cols: list[str], rows: list[list[str]], excl: set[
     sql = f"INSERT INTO {schema}.{table} ({joined_cols}) VALUES \n\t{joined_rows};"
     print(sql)
 
+def parse_show_tables_in(sql: str, curr_db: str, debug: bool = False) -> str:
+    m = re.search(r"^show +tables +in ([^ ]+).*", sql, re.IGNORECASE)
+    if debug: print(f"[debug] parse_show_tables_in, sql: {sql}, m: {m}")
+    if m: return m.group(1)
+    return curr_db
 
 def guess_qry_type(sql: str) -> int:
     if re.match(r"^select .* from.*", sql, re.IGNORECASE): return TP_SELECT
@@ -447,3 +452,8 @@ def get_database_list(sh: OSession, debug = False) -> ODatabase:
     return ODatabase(connections, tabs)
 
 
+def flatten(ll: list[list]) -> list:
+    flat = []
+    for r in ll:
+        for v in r: flat.append(v)
+    return flat
