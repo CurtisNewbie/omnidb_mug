@@ -222,15 +222,17 @@ def launch_console(args):
 
     # execute queries
     print()
-    print("Switching to interactive mode, enter '\quit' to exit")
-    print("Enter '\\export [SQL]' to export results as an excel file")
-    print("Enter '\\change' to change the connected instance")
-    print("Enter '\\reconnect' to reconnect the websocket connection")
-    print("Enter '\\debug' to enable/disable debug mode")
+    print("Switching to interactive mode, type 'quit' to exit")
+    print()
+    print(" \\export SELECT_SQL    export results as an excel file")
+    print(" \\insert SELECT_SQL    generate INSERT SQL")
+    print(" \\change               change the connected instance")
+    print(" \\reconnect            reconnect the websocket connection")
+    print(" \\debug                enable/disable debug mode")
     print()
 
     # fetch all schema names for completer
-    print("Fetching schema names for auto-completion")
+    if debug: print("[debug] Fetching schema names for auto-completion")
     ok, _, rows = util.exec_query(ws=ws, sql="SHOW DATABASES", qc=qry_ctx, slient=True)
     if ok: nested_add_completer_word(rows, debug) # feed SCHEMA names
 
