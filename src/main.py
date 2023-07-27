@@ -350,13 +350,11 @@ def launch_console(args):
 
                 # feed the table name and field names to completer
                 if qry_tp == util.TP_SHOW_TABLE:
-                    flatten_rows = util.flatten(rows)
-                    for v in flatten_rows:
-                        add_completer_word(v, debug)
-
                     _db: str = util.parse_show_tables_in(sql, curr_db, debug)
                     if not _db: _db = curr_db
-                    for v in flatten_rows:
+
+                    for v in util.flatten(rows):
+                        add_completer_word(v, debug)
                         add_completer_word(f"{_db}.{v}", debug)
                 elif qry_tp == util.TP_DESC:
                     for ro in rows: add_completer_word(ro[0], debug) # ro[0] is `Field`
