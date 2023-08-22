@@ -14,7 +14,7 @@ python3 src/main.py
 # or you can use an alias to pass some environment configuration
 alias mug="python3 /omnidb_mug/src/main.py --force-batch-export --user 'myname' --host 'myomnidb' --log '/tmp/ndb.log'"
 
-# then simply type `ndb` to enter interactive mode
+# then simply type `mug` to start the program and enter interactive mode
 mug
 
 # or scripting mode
