@@ -58,4 +58,4 @@ SELECT * FROM mydb.mytable WHERE id = 3;
 
 ## Demo
 
-<img src="demo/demo1.jpeg" alt="demo1" width="600">
+<img src="demo/demo1.png" alt="demo1" width="600">
