@@ -313,6 +313,21 @@ def exec_batch_query(ws: WebSocket, sql: str, qry_ctx: QueryContext, page_size: 
     return ok, acc_cols, acc_rows
 
 
+class BufWriter():
+
+    def __init__(self):
+        self.res = ""
+
+    def print(self, s = ""):
+        self.res = self.res + s + "\n"
+
+    def write_log(self):
+        print(self.res)
+
+    def write_file(self, file):
+        if file: file.write(self.res)
+
+
 def exec_query(ws: WebSocket, sql: str, qc: QueryContext, slient = False, pretty = False) -> tuple[bool, list[str],list[list[str]]]:
     debug = qc.debug
 
@@ -341,28 +356,30 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, slient = False, pretty
     rows = j["v_data"]["v_data"]
     cost = j["v_data"]["v_duration"]
 
+    w = BufWriter()
+
     if not slient and len(col) > 0:
         if is_show_create_table(sql):
-            print("\n" + rows[0][1])
+            w.print("\n" + rows[0][1])
         else:
             if pretty:
 
                 # max length among the column names
                 max_col_len = 0
                 for c in col: max_col_len = max(str_width(c), max_col_len)
-                if debug: print(f"[debug] max_col_len: {max_col_len}")
+                if debug: w.print(f"[debug] max_col_len: {max_col_len}")
 
                 sl = []
                 for r in rows:
-                    s = ""
+                    output = ""
                     for i in range(len(col)):
-                        s += f"{spaces(max_col_len - str_width(col[i]))}{col[i]}: {r[i]}"
-                        if i < len(col) - 1: s += "\n"
-                    sl.append(s)
+                        output += f"{spaces(max_col_len - str_width(col[i]))}{col[i]}: {r[i]}"
+                        if i < len(col) - 1: output += "\n"
+                    sl.append(output)
 
-                print("\n******************************************\n")
-                print("\n\n******************************************\n\n".join(sl))
-                print("\n******************************************")
+                w.print("\n******************************************\n")
+                w.print("\n\n******************************************\n\n".join(sl))
+                w.print("\n******************************************")
             else:
                 # max length among the rows
                 indent : dict[int][int] = {}
@@ -370,26 +387,29 @@ def exec_query(ws: WebSocket, sql: str, qc: QueryContext, slient = False, pretty
                 for r in rows:
                     for i in range(len(col)): indent[i] = max(indent[i], str_width(r[i]))
 
-                print()
+                w.print()
                 col_title = "| "
                 col_sep = "|-"
                 for i in range(len(col)):
                     col_title += col[i] + spaces(indent[i] - str_width(col[i]) + 1) + " | "
                     col_sep += sjoin(indent[i] + 1, "-") + "-|"
                     if i < len(col) - 1: col_sep += "-"
-                print(col_sep + "\n" + col_title + "\n" + col_sep)
+                w.print(col_sep + "\n" + col_title + "\n" + col_sep)
 
                 for r in rows:
                     row_ctn = "| "
                     for i in range(len(col)): row_ctn += r[i] + spaces(1 + indent[i] - str_width(r[i])) + " | "
-                    print(row_ctn)
-                print(col_sep)
+                    w.print(row_ctn)
+                w.print(col_sep)
 
-        print()
-        print(f"Total    : {len(rows)}")
-        print(f"Cost     : {cost}")
-        print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
-        print()
+        w.print()
+        w.print(f"Total    : {len(rows)}")
+        w.print(f"Cost     : {cost}")
+        w.print(f"Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
+        w.print()
+
+    w.write_log()
+    w.write_file(qc.logf)
 
     if debug: print(f"[debug] Total: {len(rows)}, Cost: {cost}, Wall Time: {(time.monotonic_ns() - start) / 1e6:.2f} ms")
 
