@@ -1,14 +1,13 @@
 import unittest
-import util
 import main
 
 class Tester(unittest.TestCase):
 
     def test_escape_sql(self):
-        e = util.escape('select * from table where f = "12345";')
+        e = main.escape('select * from table where f = "12345";')
         assert e == 'select * from table where f = \\"12345\\";'
 
-        e = util.escape('select * from table where f = \'12345\';')
+        e = main.escape('select * from table where f = \'12345\';')
         assert e == 'select * from table where f = \'12345\';'
 
     def test_change_instance(self):
@@ -24,199 +23,199 @@ class Tester(unittest.TestCase):
         assert main.is_export_cmd('\\EXPORT')
 
     def test_guess_qry_type(self):
-        assert util.guess_qry_type('SELECT * FROM table where name = "gucci" limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT * FROM table where name in ("gucci", "juice") limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT * FROM table where f_name in ("gucci", "juice") limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT count(*) FROM table where name = "gucci" limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT count(*) FROM table;') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT name  FROM table;') == util.TP_SELECT
-        assert util.guess_qry_type('SELECT * FROM apple.table where name = "gucci" limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('select * from .table where name = "gucci" limit 10') == util.TP_SELECT
-        assert util.guess_qry_type('show tables in db like abc') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables in db') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables;') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables ;') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables like abc;') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables like abc ;') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables like \'abc\';') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('show tables like \'%ab_c\';') == util.TP_SHOW_TABLE
-        assert util.guess_qry_type('desc my_table') == util.TP_DESC
-        assert util.guess_qry_type('desc my_table ;') == util.TP_DESC
-        assert util.guess_qry_type('desc my_table ;  ') == util.TP_DESC
-        assert util.guess_qry_type('desc db.my_table ;') == util.TP_DESC
-        assert util.guess_qry_type('desc db.my_table') == util.TP_DESC
-        assert util.guess_qry_type('show create table db.abc ;') == util.TP_SHOW_CREATE_TABLE
-        assert util.guess_qry_type('show create table db.abc') == util.TP_SHOW_CREATE_TABLE
-        assert util.guess_qry_type('show create table abc ;') == util.TP_SHOW_CREATE_TABLE
-        assert util.guess_qry_type('show create table abc ;   ') == util.TP_SHOW_CREATE_TABLE
-        assert util.guess_qry_type('show create table abc;') == util.TP_SHOW_CREATE_TABLE
-        assert util.guess_qry_type('use mydb') == util.TP_USE_DB
-        assert util.guess_qry_type('use mydb  ;') == util.TP_USE_DB
-        assert util.guess_qry_type('use  mydb  ') == util.TP_USE_DB
-        assert util.guess_qry_type('use  mydb  ;') == util.TP_USE_DB
+        assert main.guess_qry_type('SELECT * FROM table where name = "gucci" limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT * FROM table where name in ("gucci", "juice") limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT * FROM table where f_name in ("gucci", "juice") limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT count(*) FROM table where name = "gucci" limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT count(*) FROM table;') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT name  FROM table;') == main.TP_SELECT
+        assert main.guess_qry_type('SELECT * FROM apple.table where name = "gucci" limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('select * from .table where name = "gucci" limit 10') == main.TP_SELECT
+        assert main.guess_qry_type('show tables in db like abc') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables in db') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables;') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables ;') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables like abc;') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables like abc ;') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables like \'abc\';') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('show tables like \'%ab_c\';') == main.TP_SHOW_TABLE
+        assert main.guess_qry_type('desc my_table') == main.TP_DESC
+        assert main.guess_qry_type('desc my_table ;') == main.TP_DESC
+        assert main.guess_qry_type('desc my_table ;  ') == main.TP_DESC
+        assert main.guess_qry_type('desc db.my_table ;') == main.TP_DESC
+        assert main.guess_qry_type('desc db.my_table') == main.TP_DESC
+        assert main.guess_qry_type('show create table db.abc ;') == main.TP_SHOW_CREATE_TABLE
+        assert main.guess_qry_type('show create table db.abc') == main.TP_SHOW_CREATE_TABLE
+        assert main.guess_qry_type('show create table abc ;') == main.TP_SHOW_CREATE_TABLE
+        assert main.guess_qry_type('show create table abc ;   ') == main.TP_SHOW_CREATE_TABLE
+        assert main.guess_qry_type('show create table abc;') == main.TP_SHOW_CREATE_TABLE
+        assert main.guess_qry_type('use mydb') == main.TP_USE_DB
+        assert main.guess_qry_type('use mydb  ;') == main.TP_USE_DB
+        assert main.guess_qry_type('use  mydb  ') == main.TP_USE_DB
+        assert main.guess_qry_type('use  mydb  ;') == main.TP_USE_DB
 
 
     def test_auto_complete_db(self):
         db = 'my_db'
         sql = 'SELECT * FROM table where name = "gucci" limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name = "gucci" limit 10'
 
         sql = 'EXPLAIN SELECT * FROM table where name = "gucci" limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'EXPLAIN SELECT * FROM my_db.table where name = "gucci" limit 10'
 
         sql = 'SELECT * FROM table where name in ("gucci", "juice") limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where name in ("gucci", "juice") limit 10'
 
         sql = 'SELECT * FROM table where f_name in ("gucci", "juice") limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where f_name in ("gucci", "juice") limit 10'
 
         sql = 'SELECT count(*) FROM table where name = "gucci" limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table where name = "gucci" limit 10'
 
         sql = 'SELECT count(*) FROM table;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table;'
 
         sql = 'SELECT name, desc FROM table;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT name, desc FROM my_db.table;'
 
         sql = 'SELECT name  FROM table;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT name  FROM my_db.table;'
 
         sql = 'SELECT count(*) FROM table ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table ;'
 
         sql = 'SELECT * FROM apple.table where name = "gucci" limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == sql
 
         sql = 'select * from .table where name = "gucci" limit 10'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'select * from my_db.table where name = "gucci" limit 10'
 
         sql = 'show tables in db like abc'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == sql
 
         sql = 'show tables in db'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == sql
 
         sql = 'show tables'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db'
 
         sql = 'show tables;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db;'
 
         sql = 'show tables ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db;'
 
         sql = 'show tables like abc;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db like abc;'
 
         sql = 'show tables like abc ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db like abc ;'
 
         sql = 'show tables like \'abc\';'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db like \'abc\';'
 
         sql = 'show tables like \'%ab_c\';'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show tables in my_db like \'%ab_c\';'
 
         sql = 'desc my_table'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'desc my_db.my_table'
 
         sql = 'desc my_table ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'desc my_db.my_table ;'
 
         sql = 'desc my_table ;  '
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'desc my_db.my_table ;'
 
         sql = 'desc db.my_table ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'desc db.my_table ;'
 
         sql = 'desc db.my_table'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'desc db.my_table'
 
         sql = 'show create table db.abc ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show create table db.abc ;'
 
         sql = 'show create table db.abc'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show create table db.abc'
 
         sql = 'show create table abc ;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show create table my_db.abc ;'
 
         sql = 'show create table abc ;   '
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show create table my_db.abc ;'
 
         sql = 'show create table abc;'
-        completed = util.auto_complete_db(sql, db)
+        completed = main.auto_complete_db(sql, db)
         assert completed == 'show create table my_db.abc;'
 
 
     def test_parse_pretty_print(self):
-        p, s = util.parse_pretty_print("select 1 from abc \G")
+        p, s = main.parse_pretty_print("select 1 from abc \G")
         assert p
         assert s == "select 1 from abc"
 
-        p, s = util.parse_pretty_print("select 1 from abc \g")
+        p, s = main.parse_pretty_print("select 1 from abc \g")
         assert p
         assert s == "select 1 from abc"
 
-        p, s = util.parse_pretty_print("select 1 from abc \G;")
+        p, s = main.parse_pretty_print("select 1 from abc \G;")
         assert p
         assert s == "select 1 from abc ;"
 
-        p, s = util.parse_pretty_print("select 1 from abc \G ;")
+        p, s = main.parse_pretty_print("select 1 from abc \G ;")
         assert p
         assert s == "select 1 from abc  ;"
 
 
     def test_is_exit_cmd(self):
-        assert util.is_exit("exit")
-        assert not util.is_exit("exit(")
-        assert util.is_exit("exit()")
-        assert util.is_exit("quit")
-        assert util.is_exit("quit()")
-        assert util.is_exit("QUIT()")
-        assert util.is_exit("\quit")
-        assert util.is_exit("\exit")
+        assert main.is_exit("exit")
+        assert not main.is_exit("exit(")
+        assert main.is_exit("exit()")
+        assert main.is_exit("quit")
+        assert main.is_exit("quit()")
+        assert main.is_exit("QUIT()")
+        assert main.is_exit("\quit")
+        assert main.is_exit("\exit")
 
 
     def test_extract_schema_table(self):
         sql = 'SELECT * FROM mydb.table where name = "gucci" limit 10'
-        schema, table = util.extract_schema_table(sql)
+        schema, table = main.extract_schema_table(sql)
         assert schema == 'mydb'
         assert table == 'table'
 
         sql = 'SELECT * FROM mydb.table'
-        schema, table = util.extract_schema_table(sql)
+        schema, table = main.extract_schema_table(sql)
         assert schema == 'mydb'
         assert table == 'table'
 
