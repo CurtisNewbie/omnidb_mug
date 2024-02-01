@@ -584,6 +584,12 @@ def parse_use_db(sql: str) -> tuple[bool, str]:
 
 
 def export(rows, cols, outf):
+    import importlib.util
+    found = importlib.util.find_spec("excelparser") is not None
+    if not found:
+        print("\nYou should install https://github.com/CurtisNewbie/excelparser before using the '\export' command\n")
+        return
+
     # https://github.com/CurtisNewbie/excelparser
     import excelparser
     ep = excelparser.ExcelParser(outf)
