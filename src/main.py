@@ -7,7 +7,6 @@ import sys
 import re
 import readline # don't remove this, this is for input()
 import time
-import time
 import subprocess
 import io
 import unicodedata
@@ -49,14 +48,15 @@ def write_completer_cache():
         s = json.dumps(candidates)
         f.write(s)
 
-def load_completer_cache():
+def load_completer_cache() -> bool:
     p = Path.home() / "omnidb_mug" / "cache.json"
-    if not os.path.exists(p): return
+    if not os.path.exists(p): return False
 
     try:
         with open(p, mode='r') as f:
             candidates = json.loads(f.read())
             for c in candidates: add_completer_word(c)
+            return True
     except json.JSONDecodeError: pass
 
 class OTab:
@@ -688,7 +688,7 @@ def launch_console(args):
     qry_ctx.v_tab_id = v_tab_id
     qry_ctx.debug = debug
 
-    load_completer_cache()
+    completer_cache_loaded = load_completer_cache()
 
     try:
         while not host: input("Enter host of Omnidb: ")
@@ -735,10 +735,11 @@ def launch_console(args):
     print(" \\debug                enable/disable debug mode")
     print()
 
-    # fetch all schema names for completer
-    if debug: print("[debug] Fetching schema names for auto-completion")
-    ok, _, rows = exec_query(ws=ws, sql="SHOW DATABASES", qc=qry_ctx, slient=True)
-    if ok: nested_add_completer_word(rows, debug) # feed SCHEMA names
+    if not completer_cache_loaded:
+        # fetch all schema names for completer
+        if debug: print("[debug] Fetching schema names for auto-completion")
+        ok, _, rows = exec_query(ws=ws, sql="SHOW DATABASES", qc=qry_ctx, slient=True)
+        if ok: nested_add_completer_word(rows, debug) # feed SCHEMA names
 
     # database names that we have USE(d)
     swapped_db = set()
