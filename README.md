@@ -1,6 +1,6 @@
 # omnidb_mug
 
-Simple command line console tool for OmniDB under 1000 lines.
+CLI console for OmniDB in under 1000 lines of code :D
 
 ```sh
 # install dependencies
