@@ -1,6 +1,6 @@
 # omnidb_mug
 
-Simple command line console tool for OmniDB.
+Simple command line console tool for OmniDB within 1000 lines.
 
 ```sh
 python3 -m pip install -r requirements.txt
