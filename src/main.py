@@ -1,3 +1,4 @@
+from pathlib import Path
 import datetime
 import argparse
 import getpass
@@ -36,6 +37,27 @@ v_conn_tab_id = "conn_tabs_tab4"
 
 # auto complete words
 completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
+
+def write_completer_cache():
+    di = Path.home() / "omnidb_mug"
+    os.makedirs(di, exist_ok=True)
+    p =  di / "cache.json"
+
+    with open(file=p, mode="w") as f:
+        candidates = []
+        for w in completer_candidates: candidates.append(w)
+        s = json.dumps(candidates)
+        f.write(s)
+
+def load_completer_cache():
+    p = Path.home() / "omnidb_mug" / "cache.json"
+    if not os.path.exists(p): return
+
+    try:
+        with open(p, mode='r') as f:
+            candidates = json.loads(f.read())
+            for c in candidates: add_completer_word(c)
+    except json.JSONDecodeError: pass
 
 class OTab:
     def __init__(self, index, tab_db_id, title):
@@ -114,7 +136,7 @@ def dump_insert_sql(sql: str, cols: list[str], rows: list[list[str]], excl: set[
     print(sql)
 
 def parse_show_tables_in(sql: str, curr_db: str, debug: bool = False) -> str:
-    m = re.search(r"^show +tables +in ([^ ]+).*", sql, re.IGNORECASE)
+    m = re.search(r"^show +tables +in ([^ ;]+).*", sql, re.IGNORECASE)
     if debug: print(f"[debug] parse_show_tables_in, sql: {sql}, m: {m}")
     if m: return m.group(1)
     return curr_db
@@ -658,12 +680,15 @@ def launch_console(args):
     env_print("Debug Mode", debug)
     env_print("Log File", args.log)
     env_print("Excluded Columns for INSERT Dump", insert_excl)
+    env_print("AutoCompleter Cache", Path.home() / "omnidb_mug" / "cache.json")
 
     ws: WebSocket = None
     qry_ctx = QueryContext()
     qry_ctx.v_conn_tab_id = v_conn_tab_id
     qry_ctx.v_tab_id = v_tab_id
     qry_ctx.debug = debug
+
+    load_completer_cache()
 
     try:
         while not host: input("Enter host of Omnidb: ")
@@ -730,7 +755,9 @@ def launch_console(args):
         try:
             cmd = input(f"({curr_db}) > " if curr_db else "> ").strip()
             if cmd == "": continue
-            if is_exit(cmd): break
+            if is_exit(cmd):
+                write_completer_cache()
+                break
 
             batch_export = False
             sql = cmd
