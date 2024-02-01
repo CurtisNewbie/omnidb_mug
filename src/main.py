@@ -672,15 +672,15 @@ def launch_console(args):
     debug = args.debug # enable debug mode
     batch_export_throttle_ms = args.batch_export_throttle_ms # sleep time in ms for each batch export
     insert_excl = args.insert_excl.strip()
+    if not insert_excl: insert_excl = "id"
     insert_excl_cols: set[str] = set(insert_excl.split(","))
 
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
     env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
-    env_print("Debug Mode", debug)
     env_print("Log File", args.log)
-    env_print("Excluded Columns for INSERT Dump", insert_excl)
     env_print("AutoCompleter Cache", Path.home() / "omnidb_mug" / "cache.json")
+    env_print("Excluded Columns for INSERT Dump", insert_excl)
 
     ws: WebSocket = None
     qry_ctx = QueryContext()
@@ -987,7 +987,7 @@ if __name__ == "__main__":
     ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
     ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {1000})", default=1000)
     ap.add_argument('--script', type=str, help=f"Path to scripting file", default="")
-    ap.add_argument('--log', type=str, help=f"Path to log file (only SQLs are logged)", default="")
+    ap.add_argument('--log', type=str, help=f"Path to log file (both SQLs and results are logged)", default="")
     ap.add_argument('--insert-excl', type=str, help=f"Exclude columns when trying to dump INSERT sqls (delimited by \',\')", default="")
     args = ap.parse_args()
 
