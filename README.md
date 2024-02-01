@@ -1,9 +1,13 @@
 # omnidb_mug
 
-Simple command line console tool for OmniDB within 1000 lines.
+Simple command line console tool for OmniDB under 1000 lines.
 
 ```sh
+# install dependencies
 python3 -m pip install -r requirements.txt
+
+# install dependencies using a specific source address
+python3 -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # for exporting excel files
 (git clone https://github.com/CurtisNewbie/excelparser.git; cd excelparser; python3 -m pip install .)
