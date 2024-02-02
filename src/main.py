@@ -987,7 +987,8 @@ if __name__ == "__main__":
     ap.add_argument('--batch-export-limit', type=int, help=f"Batch export limit (default: {400})", default=400)
     ap.add_argument('--batch-export-throttle-ms', type=int, help=f"Batch export throttle time in ms (default: {1500})", default=1500)
     ap.add_argument('--script', type=str, help=f"Path to scripting file", default="")
-    ap.add_argument('--log', type=str, help=f"Path to log file (both SQLs and results are logged)", default="")
+    defaultLogFile = p = Path.home() / "omnidb_mug" / "exec.log"
+    ap.add_argument('--log', type=str, help=f"Path to log file, both SQLs and results are logged(default: ${defaultLogFile})", default=defaultLogFile)
     ap.add_argument('--insert-excl', type=str, help=f"Exclude columns when trying to dump INSERT sqls (delimited by \',\')", default="")
     args = ap.parse_args()
 
