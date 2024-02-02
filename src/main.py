@@ -38,10 +38,7 @@ v_conn_tab_id = "conn_tabs_tab4"
 completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
 
 def write_completer_cache():
-    di = Path.home() / "omnidb_mug"
-    os.makedirs(di, exist_ok=True)
-    p =  di / "cache.json"
-
+    p = Path.home() / "omnidb_mug" / "cache.json"
     with open(file=p, mode="w") as f:
         candidates = []
         for w in completer_candidates: candidates.append(w)
@@ -891,6 +888,7 @@ def run_scripts(args):
     http_protocol = args.http_protocol # http protocol
     ws_protocol = args.ws_protocol # websocket protocol
     debug = args.debug # enable debug mode
+    os.makedirs(Path.home() / "omnidb_mug", exist_ok=True)
 
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
