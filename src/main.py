@@ -751,11 +751,28 @@ def launch_console(args):
 
     while True:
         try:
-            cmd = input(f"({curr_db}) > " if curr_db else "> ").strip()
-            if cmd == "": continue
-            if is_exit(cmd):
-                write_completer_cache()
-                break
+            cmd = ""
+            inputs : list[str] = []
+            exit_console = False
+            while True:
+                prompt = f"({curr_db}) > " if curr_db else "> "
+                if len(inputs) > 0: prompt = "  "
+                cmd = input(prompt).strip()
+                if is_exit(cmd):
+                    write_completer_cache()
+                    exit_console = True
+                    break
+                if cmd == "":
+                    if len(inputs) < 1: continue
+                    break
+
+                inputs.append(cmd)
+                if cmd.endswith(';'): break
+
+            if exit_console: break;
+
+            for i in range(len(inputs)): inputs[i] = inputs[i].strip()
+            cmd = " ".join(inputs)
 
             batch_export = False
             sql = cmd
