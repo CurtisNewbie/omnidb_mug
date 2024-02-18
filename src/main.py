@@ -671,6 +671,7 @@ def launch_console(args):
     insert_excl = args.insert_excl.strip()
     if not insert_excl: insert_excl = "id"
     insert_excl_cols: set[str] = set(insert_excl.split(","))
+    multiline_input = args.multiline_input
 
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
@@ -678,6 +679,7 @@ def launch_console(args):
     env_print("Log File", args.log)
     env_print("AutoCompleter Cache", Path.home() / "omnidb_mug" / "cache.json")
     env_print("Excluded Columns for INSERT Dump", insert_excl)
+    env_print("Multi-line Console Input", multiline_input)
 
     ws: WebSocket = None
     qry_ctx = QueryContext()
@@ -751,29 +753,35 @@ def launch_console(args):
 
     while True:
         try:
-            cmd = ""
-            inputs : list[str] = []
-            exit_console = False
-            while True:
-                prompt = f"({curr_db}) > " if curr_db else "> "
-                if len(inputs) > 0: prompt = "  "
-                cmd = input(prompt).strip()
-                if cmd == "":
-                    if len(inputs) < 1: continue
-                    break
+            if not multiline_input:
+                cmd = input(f"({curr_db}) > " if curr_db else "> ").strip()
+                if cmd == "": continue
                 if is_exit(cmd):
                     write_completer_cache()
-                    exit_console = True
                     break
+            else:
+                cmd = ""
+                inputs : list[str] = []
+                exit_console = False
+                while True:
+                    prompt = f"({curr_db}) > " if curr_db else "> "
+                    if len(inputs) > 0: prompt = "  "
+                    cmd = input(prompt).strip()
+                    if cmd == "":
+                        if len(inputs) < 1: continue
+                        break
+                    if is_exit(cmd):
+                        write_completer_cache()
+                        exit_console = True
+                        break
 
-                inputs.append(cmd)
-                if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd): break
-                if cmd.endswith(';'): break
+                    inputs.append(cmd)
+                    if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd): break
+                    if cmd.endswith(';'): break
 
-            if exit_console: break;
-
-            for i in range(len(inputs)): inputs[i] = inputs[i].strip()
-            cmd = " ".join(inputs)
+                if exit_console: break;
+                for i in range(len(inputs)): inputs[i] = inputs[i].strip()
+                cmd = " ".join(inputs)
 
             batch_export = False
             sql = cmd
@@ -1006,6 +1014,7 @@ if __name__ == "__main__":
     defaultLogFile = p = Path.home() / "omnidb_mug" / "exec.log"
     ap.add_argument('--log', type=str, help=f"Path to log file, both SQLs and results are logged(default: ${defaultLogFile})", default=defaultLogFile)
     ap.add_argument('--insert-excl', type=str, help=f"Exclude columns when trying to dump INSERT sqls (delimited by \',\')", default="")
+    ap.add_argument('--multiline-input', help=f"Support multi-line console input", action="store_true")
     args = ap.parse_args()
 
     if args.script: run_scripts(args)
