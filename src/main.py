@@ -30,7 +30,7 @@ DEFAULT_WS_PROTOCOL = "wss://"
 EXPORT_LEN = len("\export")
 DUMP_INSERT_LEN = len("\insert")
 
-# TODO these doesn't seem to be important :D
+# these are the id of the tabs, it's not important, the history of the tab is lost tho
 v_tab_id = "conn_tabs_tab4_tabs_tab1"
 v_conn_tab_id = "conn_tabs_tab4"
 
