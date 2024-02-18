@@ -4,10 +4,10 @@ CLI console for OmniDB in under 1000 lines of code :D
 
 ```sh
 # install dependencies
-python3 -m pip install websocket-client
+python3 -m pip install websocket-client requests
 
 # install dependencies using a specific source address
-python3 -m pip install websocket-client -i https://pypi.tuna.tsinghua.edu.cn/simple
+python3 -m pip install websocket-client requests -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # for exporting excel files
 (git clone https://github.com/CurtisNewbie/excelparser.git; cd excelparser; python3 -m pip install .)
