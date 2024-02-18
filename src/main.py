@@ -758,15 +758,16 @@ def launch_console(args):
                 prompt = f"({curr_db}) > " if curr_db else "> "
                 if len(inputs) > 0: prompt = "  "
                 cmd = input(prompt).strip()
+                if cmd == "":
+                    if len(inputs) < 1: continue
+                    break
                 if is_exit(cmd):
                     write_completer_cache()
                     exit_console = True
                     break
-                if cmd == "":
-                    if len(inputs) < 1: continue
-                    break
 
                 inputs.append(cmd)
+                if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd): break
                 if cmd.endswith(';'): break
 
             if exit_console: break;
