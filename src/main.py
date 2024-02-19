@@ -671,7 +671,7 @@ def launch_console(args):
     insert_excl = args.insert_excl.strip()
     if not insert_excl: insert_excl = "id"
     insert_excl_cols: set[str] = set(insert_excl.split(","))
-    multiline_input = args.multiline_input
+    multiline_input = not args.oneline_input
 
     env_print("Python Version", sys.version)
     env_print("Using HTTP Protocol", http_protocol)
@@ -1015,7 +1015,7 @@ if __name__ == "__main__":
     defaultLogFile = p = Path.home() / "omnidb_mug" / "exec.log"
     ap.add_argument('--log', type=str, help=f"Path to log file, both SQLs and results are logged(default: ${defaultLogFile})", default=defaultLogFile)
     ap.add_argument('--insert-excl', type=str, help=f"Exclude columns when trying to dump INSERT sqls (delimited by \',\')", default="")
-    ap.add_argument('--multiline-input', help=f"Support multi-line console input", action="store_true")
+    ap.add_argument('--oneline-input', help=f"Disable multi-line console input", action="store_true")
     args = ap.parse_args()
 
     if args.script: run_scripts(args)
