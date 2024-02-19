@@ -673,6 +673,7 @@ def launch_console(args):
     insert_excl_cols: set[str] = set(insert_excl.split(","))
     multiline_input = args.multiline_input
 
+    env_print("Python Version", sys.version)
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
     env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
