@@ -161,7 +161,8 @@ def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
     # single join
     # ^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))* ?(?: *| +.*);?$
     # there are 4 joins in this regex
-    pat = re.compile(r"^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
+    # this doesn't support table alias, don't know how to fix it yet, maybe we should write a simple parser instead?
+    pat = re.compile(r"^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
     def repl(m: re.Match):
         idx = []
         for p in pat.groupindex.items():
