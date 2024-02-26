@@ -157,11 +157,38 @@ def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
     sql = sql.strip()
 
     completed = False
-    m = re.match(r"^(?:explain)? *select .* from +(\.?[\`\w_]+)(?: *| +.*);?$", sql, re.IGNORECASE)
-    if m:
-        open, close = m.span(1)
-        sql = insert_db_name(sql, database, open, close)
+    re.match
+    # single join
+    # ^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))* ?(?: *| +.*);?$
+    # there are 4 joins in this regex
+    pat = re.compile(r"^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
+    def repl(m: re.Match):
+        idx = []
+        for p in pat.groupindex.items():
+            idx.append(p.index)
+
+        text = m.group()
+        chunks = []
+        lastindex = 0
+        for i in range(1, pat.groups+1):
+
+            v: str = m.group(i)
+            if v is None: continue
+            if v.endswith("."): v = database + v
+            else: v = database + v + "."
+
+            chunks.append(text[lastindex:m.start(i)])
+            chunks.append(v)
+            lastindex = m.end(i)
+
+        chunks.append(text[lastindex:])
+        # print(chunks)
+        return ''.join(chunks)
+
+    copy = re.sub(pat, repl, sql)
+    if copy != sql:
         completed = True
+        sql = copy
 
     if not completed:
         m = re.match(r"^show +tables( *)(?:| +like [^ ]+) *;? *$", sql, re.IGNORECASE)

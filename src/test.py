@@ -74,6 +74,18 @@ class Tester(unittest.TestCase):
         completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT * FROM my_db.table where f_name in ("gucci", "juice") limit 10'
 
+        sql = 'SELECT * FROM table left join another_table on ta = tb'
+        completed = main.auto_complete_db(sql, db)
+        assert completed == 'SELECT * FROM my_db.table left join my_db.another_table on ta = tb'
+
+        sql = 'SELECT * FROM table right join another_table on ta = tb'
+        completed = main.auto_complete_db(sql, db)
+        assert completed == 'SELECT * FROM my_db.table right join my_db.another_table on ta = tb'
+
+        sql = 'SELECT * FROM table left join another_table using (join_col) right join yet_ano_table on ta = tb where name in ("gucci", "juice") limit 10 '
+        completed = main.auto_complete_db(sql, db)
+        assert completed == 'SELECT * FROM my_db.table left join my_db.another_table using (join_col) right join my_db.yet_ano_table on ta = tb where name in ("gucci", "juice") limit 10'
+
         sql = 'SELECT count(*) FROM table where name = "gucci" limit 10'
         completed = main.auto_complete_db(sql, db)
         assert completed == 'SELECT count(*) FROM my_db.table where name = "gucci" limit 10'
