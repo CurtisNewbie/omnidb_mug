@@ -806,8 +806,10 @@ def launch_console(args):
                     inputs.append(cmd)
                     if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd): break
                     if cmd.endswith(';'): break
+                    is_pretty_print, _ = parse_pretty_print(cmd)
+                    if is_pretty_print: break
 
-                if exit_console: break;
+                if exit_console: break
                 for i in range(len(inputs)): inputs[i] = inputs[i].strip()
                 cmd = " ".join(inputs)
 
