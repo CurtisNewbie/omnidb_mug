@@ -17,6 +17,7 @@ from os.path import abspath
 
 # reuse connection
 session = requests.Session()
+version = "v0.0.12"
 
 TP_SELECT = 0
 TP_SHOW_TABLE = 1
@@ -37,13 +38,18 @@ v_conn_tab_id = "conn_tabs_tab4"
 # auto complete words
 completer_candidates = {"exit", "change", "instance", "export", "use", "desc"}
 
-def write_completer_cache():
+def write_completer_cache(debug):
+    start = time.monotonic_ns()
+
     p = Path.home() / "omnidb_mug" / "cache.json"
     with open(file=p, mode="w") as f:
         candidates = []
         for w in completer_candidates: candidates.append(w)
         s = json.dumps(candidates)
         f.write(s)
+
+    if debug:
+        print(f"[debug] Writing completer cache took ({(time.monotonic_ns() - start) / 1e6:.3f}ms)")
 
 def load_completer_cache() -> bool:
     p = Path.home() / "omnidb_mug" / "cache.json"
@@ -84,9 +90,6 @@ class OSession:
 
 
 def escape_quote(s: str, quote: str = "'", escape: str = '\\') -> str:
-    '''
-    Escape quote with \\ prefix
-    '''
     return s.replace(quote, f'{escape}{quote}')
 
 
@@ -119,7 +122,6 @@ def collect_filter_idx(l: list[str], excl: set[str]) -> set[int]:
 
 def dump_insert_sql(sql: str, cols: list[str], rows: list[list[str]], excl: set[str] = None):
     schema, table = extract_schema_table(sql)
-
     filter_idx =  collect_filter_idx(cols, excl)
     joined_cols = ",".join(filter_by_idx(cols, filter_idx))
 
@@ -143,7 +145,7 @@ def guess_qry_type(sql: str) -> int:
     if re.match(r"^show +tables.*", sql, re.IGNORECASE): return TP_SHOW_TABLE
     if re.match(r"^desc .*", sql, re.IGNORECASE): return TP_DESC
     if re.match(r"^show +create +table.*", sql, re.IGNORECASE): return TP_SHOW_CREATE_TABLE
-    if re.match(r"^use .*", sql, re.IGNORECASE): return TP_USE_DB
+    if re.match(r"^use ?.*", sql, re.IGNORECASE): return TP_USE_DB
     return TP_OTHER
 
 
@@ -157,15 +159,11 @@ def guess_qry_type(sql: str) -> int:
 select_join_autocomp_pat = re.compile(r"^(?:explain)? *select *(?:(?!from).)* *from *([\`\w_]*\.?[\`\w_]*) *(?:(?!left|right|inner|outer)[\w_])* *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!using|on).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
 
 def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
-    '''
-    Auto complete schema names for simple queries
-    '''
-    start = time.monotonic_ns()
     if not database: return sql
 
     sql = sql.strip()
-
     completed = False
+    start = time.monotonic_ns()
 
     def repl(m: re.Match):
         idx = []
@@ -181,17 +179,14 @@ def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
             if v is None: continue
 
             j = v.find(".")
-            if j == -1: # e.g., "table_name"
-                v = database + "." + v
-            elif j == 0: # e.g., ".table_name"
-                v = database + v
+            if j == -1: v = database + "." + v  # e.g., "table_name"
+            elif j == 0: v = database + v       # e.g., ".table_name"
 
             chunks.append(text[lastindex:m.start(i)])
             chunks.append(v)
             lastindex = m.end(i)
 
         chunks.append(text[lastindex:])
-        # print(chunks)
         return ''.join(chunks)
 
     copy = re.sub(select_join_autocomp_pat, repl, sql)
@@ -245,19 +240,15 @@ def insert_db_name(sql: str, database: str, open: int, close: int) -> str:
 def is_show_create_table(sql: str) -> bool:
     return re.match(r"^show +create +table +[\.`0-9a-zA-Z_]+ *;? *$", sql, re.IGNORECASE)
 
-
 def is_select(cmd: str) -> bool:
     return re.match(r"^select.*$", cmd, re.IGNORECASE)
-
 
 def is_exit(cmd: str) -> bool:
     return re.match(r"^(?:quit|exit|\\quit|\\exit)(?:|\(\))$", cmd, re.IGNORECASE)
 
-
 def env_print(key, value):
     prop = key + ":"
     print(f"{prop:40}{value}")
-
 
 def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> str:
     url = protocol + host + "/"
@@ -268,11 +259,9 @@ def get_csrf_token(host: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = Fal
     if debug: print(f"[debug] csrf token: '{csrf}'")
     return csrf
 
-
 def close_ws(ws: WebSocket, debug = False):
     if ws: ws.close()
     if debug: print("[debug] websocket disconnected")
-
 
 def parse_set_cookie(header: str, key: str) -> str:
     for v in header.split(';'):
@@ -280,7 +269,6 @@ def parse_set_cookie(header: str, key: str) -> str:
         if kv[0] == key:
             return kv[1]
     return None
-
 
 def login(csrf: str, host: str, username: str, password: str, protocol: str = DEFAULT_HTTP_PROTOCOL, debug = False) -> "OSession":
     url = protocol + host + '/sign_in/'
@@ -318,25 +306,20 @@ def ws_send_recv(ws: WebSocket, payload, debug=True, wait_recv_times=1) -> list[
         if debug: print(f"[debug] ws received: [{i}] '{rcv}'")
     return r
 
-
 def sys_exit(status: int, msg: str):
     if msg: print(msg)
     sys.exit(status)
-
 
 def sjoin(cnt: int, token: str) -> str:
     s = ""
     for i in range(cnt): s += token
     return s
 
-
 def spaces(cnt: int) -> str:
     return sjoin(cnt, " ")
 
-
 def query_has_limit(sql: str) -> bool:
     return re.match(".* ?[Ll][Ii][Mm][Ii][Tt]", sql)
-
 
 def str_width(s: str) -> int:
     l = 0
@@ -345,10 +328,10 @@ def str_width(s: str) -> int:
         l += 2 if w in ['W', 'F', 'A'] else 1
     return l
 
-
 class QueryContext:
 
     def __init__(self):
+        self.instance = ""
         self.debug = False
         self.v_db_index = ""
         self.v_context_code = 0
@@ -624,18 +607,21 @@ def select_instance(sh: OSession, qc: QueryContext, select_first = False) -> Que
     v_db_index = selected_conn.v_conn_id
     change_active_database(sh, v_db_index, v_conn_tab_id, "", debug=debug)
     print(f'Selected database \'{selected_conn.v_alias}\'')
+    qc.instance = selected_conn.v_alias
 
     qc.v_tab_db_id = v_tab_db_id
     qc.v_db_index = v_db_index
     return qc
 
+def is_use_db(sql):
+    return re.match(r"^use *[0-9a-zA-Z_]+", sql, re.IGNORECASE)
 
 def parse_use_db(sql: str) -> tuple[bool, str]:
     m = re.match(r"^use *([0-9a-zA-Z_]*) *;?$", sql, re.IGNORECASE)
     if m:
         use_database = m.group(1).strip()
         return True, use_database
-    return False, None
+    return True, None
 
 
 def export(rows, cols, outf):
@@ -694,7 +680,7 @@ def completer(text, state):
 
 
 def launch_console(args):
-    global v_tab_id, v_conn_tab_id
+    global v_tab_id, v_conn_tab_id, version
 
     host = args.host # host (without protocol)
     uname = args.user # username
@@ -710,6 +696,7 @@ def launch_console(args):
     multiline_input = not args.oneline_input
 
     env_print("Python Version", sys.version)
+    env_print("Omnidb_Mug Version", version)
     env_print("Using HTTP Protocol", http_protocol)
     env_print("Using WebSocket Protocol", ws_protocol)
     env_print("Force Batch Export (OFFSET, LIMIT)", force_batch_export)
@@ -791,29 +778,30 @@ def launch_console(args):
     while True:
         try:
             if not multiline_input:
-                cmd = input(f"({curr_db}) > " if curr_db else "> ").strip()
+                cmd = input(f"({qry_ctx.instance}) |{curr_db}| > " if curr_db else f"({qry_ctx.instance}) > ").strip()
                 if cmd == "": continue
                 if is_exit(cmd):
-                    write_completer_cache()
+                    write_completer_cache(qry_ctx.debug)
                     break
             else:
                 cmd = ""
                 inputs : list[str] = []
                 exit_console = False
                 while True:
-                    prompt = f"({curr_db}) > " if curr_db else "> "
-                    if len(inputs) > 0: prompt = "  "
+                    prompt = f"({qry_ctx.instance}) |{curr_db}| > " if curr_db else f"({qry_ctx.instance}) > "
+                    if len(inputs) > 0:
+                        prompt = f"{spaces(str_width(qry_ctx.instance) + str_width(curr_db) + 1)} ... > " if curr_db else f"{spaces(str_width(qry_ctx.instance)-2)} ... > "
                     cmd = input(prompt).strip()
                     if cmd == "":
                         if len(inputs) < 1: continue
                         break
                     if is_exit(cmd):
-                        write_completer_cache()
+                        write_completer_cache(qry_ctx.debug)
                         exit_console = True
                         break
 
                     inputs.append(cmd)
-                    if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd): break
+                    if is_debug(cmd) or is_change_instance(cmd) or is_reconnect(cmd) or is_use_db(cmd): break
                     if cmd.endswith(';'): break
                     is_pretty_print, _ = parse_pretty_print(cmd)
                     if is_pretty_print: break
@@ -821,6 +809,7 @@ def launch_console(args):
                 if exit_console: break
                 for i in range(len(inputs)): inputs[i] = inputs[i].strip()
                 cmd = " ".join(inputs)
+                if cmd == "": continue
 
             batch_export = False
             sql = cmd
@@ -864,7 +853,7 @@ def launch_console(args):
 
             # guess the type of the sql query, may be redundant, but it's probably more maintainable :D
             qry_tp: int = guess_qry_type(sql)
-            if debug: print(f"[debug] qry_type: {qry_tp}")
+            if debug: print(f"[debug] qry_type: {qry_tp}, {sql}")
 
             # is export & select
             if do_export and qry_tp == TP_SELECT:
@@ -877,6 +866,7 @@ def launch_console(args):
             if qry_tp == TP_USE_DB: # USE `mydb`
                 ok, db = parse_use_db(sql)
                 if ok:
+                    if curr_db == db: continue
                     curr_db = db
                     if not db or db in swapped_db: continue
                     print("Fetching table names for auto-completion")
@@ -898,12 +888,8 @@ def launch_console(args):
                 outf = input(f'Please specify where to export (defaults to \'{def_outf}\'): ').strip()
                 if not outf: outf = def_outf
 
-                ok, acc_cols, acc_rows = exec_batch_query(ws=ws,
-                                                               sql=sql,
-                                                               qry_ctx=qry_ctx,
-                                                               page_size=batch_export_limit,
-                                                               throttle_ms=batch_export_throttle_ms,
-                                                               slient=False)
+                ok, acc_cols, acc_rows = exec_batch_query(ws=ws, sql=sql, qry_ctx=qry_ctx, page_size=batch_export_limit,
+                                                          throttle_ms=batch_export_throttle_ms, slient=False)
                 if not ok: continue
                 export(acc_rows, acc_cols, outf) # all queries are finished, export them
 
