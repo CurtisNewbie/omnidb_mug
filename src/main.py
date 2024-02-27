@@ -869,7 +869,7 @@ def launch_console(args):
                     if curr_db == db: continue
                     curr_db = db
                     if not db or db in swapped_db: continue
-                    print("Fetching table names for auto-completion")
+                    print(f"Fetching tables names in '{db}' for auto-completion")
                     ok, _, drows = exec_query(ws=ws, sql=f"SHOW TABLES IN {db}", qc=qry_ctx, slient=True)
                     if not ok: continue
                     for ro in drows:

@@ -30,7 +30,18 @@ mug --script myscript.sql
 - [CurtisNewbie/excelparser](https://github.com/CurtisNewbie/excelparser) is needed for exporting query result to excel files
 
 
-It now supports auto-completion for schema names and table names (by typing TAB). Type `'USE {SCHEMA_NAME}'` to tell which database you want to use, you will still need to include the schema name in your queries because OmniDB doesn't support this.
+It now supports auto-completion for schema names and table names (by typing TAB). Type `'USE {SCHEMA_NAME}'` to tell which database you want to use. For simple queries, e.g., `SELECT ... FROM ... LEFT JOIN ... ON ... = ...`, `DESC ...`, `USE ...` or `SHOW TABLES`, omnidb_mug will attempt to auto-complete the missing schema name for you. For complex queries, you will still need to include the schema name in your queries because OmniDB doesn't support this.
+
+For example:
+
+```bash
+(omnidb) > use mydb
+Fetching tables names in 'mydb' for auto-completion
+
+(omnidb) |mydb| > show tables;
+Auto-completed (0.107ms): show tables in mydb;
+```
+
 
 By typing `'DESC {SCHEMA_NAME}.{TABLE_NAME}'`, the field names of the table will also be fed to auto-completion as well.
 
