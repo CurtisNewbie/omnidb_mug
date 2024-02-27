@@ -147,6 +147,15 @@ def guess_qry_type(sql: str) -> int:
     return TP_OTHER
 
 
+#
+# single join regex, even supports alias (by using negative look-arounds, not an excellent idea tho, but kinda works)
+#
+# ^(?:explain)? *select .* from *([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$
+#
+# the regex below supports up to 6 joins (by repeating the join part 6 times)
+#
+select_join_autocomp_pat = re.compile(r"^(?:explain)? *select .* from *([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +([\`\w_]*\.?[\`\w_]*) *(?:(?!right|left|inner|outer).)* +(?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
+
 def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
     '''
     Auto complete schema names for simple queries
@@ -157,26 +166,25 @@ def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
     sql = sql.strip()
 
     completed = False
-    re.match
-    # single join
-    # ^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join (\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))* ?(?: *| +.*);?$
-    # there are 4 joins in this regex
-    # this doesn't support table alias, don't know how to fix it yet, maybe we should write a simple parser instead?
-    pat = re.compile(r"^(?:explain)? *select .* from (\.?)(?:[\`\w_]+) *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? *(?:(?:left|right|inner|outer) +join +(\.?)(?:[\`\w_]+) (?:using +\(\w+\)|on +[\w\.]+ *\= *[\w\.]+))? ?(?: *| +.*);?$", re.IGNORECASE)
+
     def repl(m: re.Match):
         idx = []
-        for p in pat.groupindex.items():
+        for p in select_join_autocomp_pat.groupindex.items():
             idx.append(p.index)
 
         text = m.group()
         chunks = []
         lastindex = 0
-        for i in range(1, pat.groups+1):
+        for i in range(1, select_join_autocomp_pat.groups+1):
 
             v: str = m.group(i)
             if v is None: continue
-            if v.endswith("."): v = database + v
-            else: v = database + v + "."
+
+            j = v.find(".")
+            if j == -1: # e.g., "table_name"
+                v = database + "." + v
+            elif j == 0: # e.g., ".table_name"
+                v = database + v
 
             chunks.append(text[lastindex:m.start(i)])
             chunks.append(v)
@@ -186,7 +194,7 @@ def auto_complete_db(sql: str, database: str, benchmark: bool = True) -> str:
         # print(chunks)
         return ''.join(chunks)
 
-    copy = re.sub(pat, repl, sql)
+    copy = re.sub(select_join_autocomp_pat, repl, sql)
     if copy != sql:
         completed = True
         sql = copy
