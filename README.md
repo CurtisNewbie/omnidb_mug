@@ -7,45 +7,60 @@ CLI console for OmniDB in under 1000 lines of code :D (the code is terrible but 
 python3 -m pip install websocket-client requests
 
 # install dependencies using a specific source address
-python3 -m pip install websocket-client requests -i https://pypi.tuna.tsinghua.edu.cn/simple
+python3 -m pip install websocket-client requests \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# for exporting excel files
-(git clone https://github.com/CurtisNewbie/excelparser.git; cd excelparser; python3 -m pip install .)
-
-# start omnidb_mug
+# start omnidb_mug with interactive mode
 python3 src/main.py
 
-# or you can use an alias to pass some environment configuration
-alias mug="python3 /omnidb_mug/src/main.py --force-batch-export --user 'myname' --host 'myomnidb' --log '/tmp/ndb.log'"
+# start omnidb_mug with scripting mode
+python3 src/main.py --script myscript.sql
 
-# then simply type `mug` to start the program and enter interactive mode
-mug
-
-# or scripting mode
-mug --script myscript.sql
+# show help doc for omnidb_mug
+python3 src/main.py -h
 ```
 
 - Omnidb >= 2.15: https://github.com/OmniDB/OmniDB/tree/2.15.0
 - WebSocket Client Lib: https://github.com/websocket-client/websocket-client/
 - [CurtisNewbie/excelparser](https://github.com/CurtisNewbie/excelparser) is needed for exporting query result to excel files
 
+omnidb_mug supports tab completion, everytime you execute `SHOW TABLES`, `DESC ...` or even `USE ...`, omnidb_mug feeds the data to the word completer.
 
-It now supports auto-completion for schema names and table names (by typing TAB). Type `'USE {SCHEMA_NAME}'` to tell which database you want to use. For simple queries, e.g., `SELECT ... FROM ... LEFT JOIN ... ON ... = ...`, `DESC ...`, `USE ...` or `SHOW TABLES`, omnidb_mug will attempt to auto-complete the missing schema name for you. For complex queries, you will still need to include the schema name in your queries because OmniDB doesn't support this.
+omnidb_mug also supports schema name completion. You have to execute `'USE {SCHEMA_NAME}'` to tell which database you want to use, it's not supported by omnidb, but omnidb_mug recognizes the query, and will automatically complete the schema name for you, it only works for relatively simple queries though. For rather complex queries, you will still need to include the schema name in your queries just in case that the completer is not working properly.
 
-For example:
+For example, tell omnidb_mug that we are using schema 'mydb'
 
 ```bash
 (omnidb) > use mydb
 Fetching tables names in 'mydb' for auto-completion
-
-(omnidb) |mydb| > show tables;
-Auto-completed (0.107ms): show tables in mydb;
 ```
 
+Then the schema name completion should work as the following, (I personally expect that) it should cover most of the need:
 
-By typing `'DESC {SCHEMA_NAME}.{TABLE_NAME}'`, the field names of the table will also be fed to auto-completion as well.
+```sql
+SELECT * FROM my_table WHERE name = "123" ORDER BY id DESC LIMIT 10
+-- SELECT * FROM my_db.my_table WHERE name = "123" ORDER BY id DESC LIMIT 10
 
-Pretty print can be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
+SELECT * FROM my_table_1 t1
+LEFT JOIN my_table_2 t2 ON t1.id = t2.id
+LEFT JOIN my_table_3 t3 USING (od_no)
+WHERE t1.name = "123" ORDER BY t1.id DESC LIMIT 10
+--  SELECT * FROM my_db.my_table_1 t1
+--  LEFT JOIN my_db.my_table_2 t2 ON t1.id = t2.id
+--  LEFT JOIN my_db.my_table_3 t3 USING (od_no)
+--  WHERE t1.name = "123" ORDER BY t1.id DESC LIMIT 10
+
+DESC my_table
+-- DESC my_db.my_table
+
+SHOW TABLES
+-- SHOW TABLES in my_db
+
+SHOW CREATE TABLE my_table
+-- SHOW CREATE TABLE my_db.my_table
+```
+
+**Pretty Print** can also be enabled by appending the `\G` (case-insensitive) flag at the end of the query. For example:
 
 ```sql
 select * from my_database.my_table limit 1 \G

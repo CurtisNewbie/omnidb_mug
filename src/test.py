@@ -235,6 +235,28 @@ class Tester(unittest.TestCase):
         assert schema == 'mydb'
         assert table == 'table'
 
+    def test_demo_complete_schema_name(self):
+        print()
+        db = 'my_db'
+
+        sql = 'SELECT * FROM my_table WHERE name = "123" ORDER BY id DESC LIMIT 10'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
+        sql = 'SELECT * FROM my_table t1 LEFT JOIN my_table_2 t2 ON t1.id = t2.id WHERE t1.name = "123" ORDER BY t1.id DESC LIMIT 10'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
+        sql = 'SELECT * FROM my_table_1 t1 LEFT JOIN my_table_2 t2 ON t1.id = t2.id LEFT JOIN my_table_3 t3 USING (od_no) WHERE t1.name = "123" ORDER BY t1.id DESC LIMIT 10'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
+        sql = 'DESC my_table'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
+        sql = 'SHOW TABLES'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
+        sql = 'SHOW CREATE TABLE my_table'
+        print(f"{sql}\n--", main.auto_complete_db(sql, db), "\n")
+
 
 if __name__ == "__main__":
   unittest.main()
