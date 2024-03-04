@@ -88,4 +88,44 @@ SELECT * FROM mydb.mytable WHERE id = 3;
 
 ## Demo
 
-<img src="demo/demo1.png" alt="demo1" width="600">
+Copied from terminal:
+
+```bash
+Python Version:                         3.10.13 (main, Nov  1 2023, 17:29:04) [Clang 14.0.3 (clang-1403.0.22.14.1)]
+Omnidb_Mug Version:                     0.0.12
+Using HTTP Protocol:                    https://
+Using WebSocket Protocol:               wss://
+Force Batch Export (OFFSET, LIMIT):     True
+Log File:                               *************/omnidb_mug/exec.log
+AutoCompleter Cache:                    *************/omnidb_mug/cache.json
+Excluded Columns for INSERT Dump:       id
+Multi-line Console Input:               True
+Using Host:                             **********************
+Using Username:                         **********************
+
+Available database connections:
+  [0] '********'
+  [1] '**********'
+* [2] '*********'
+Selected database '*********'
+
+Switching to interactive mode, type 'quit' to exit
+
+ \export SELECT_SQL    export results as an excel file
+ \insert SELECT_SQL    generate INSERT SQL
+ \change               change the connected instance
+ \reconnect            reconnect the websocket connection
+ \debug                enable/disable debug mode
+
+(*********) > select 1;
+
+|----|
+| 1  |
+|----|
+| 1  |
+|----|
+
+Total    : 1
+Cost     : 69.491 ms
+Wall Time: 446.52 ms
+```
