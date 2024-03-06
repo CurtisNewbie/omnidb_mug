@@ -18,7 +18,7 @@ from os.path import abspath
 
 # reuse connection
 session = requests.Session()
-version = "0.0.12"
+version = "0.0.13"
 
 TP_SELECT = 0
 TP_SHOW_TABLE = 1
