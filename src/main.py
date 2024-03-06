@@ -1,4 +1,5 @@
 from pathlib import Path
+from ssl import SSLEOFError
 import datetime
 import argparse
 import getpass
@@ -914,7 +915,7 @@ def launch_console(args):
                 elif qry_tp == TP_DESC:
                     for ro in rows: add_completer_word(ro[0], debug) # ro[0] is `Field`
         except KeyboardInterrupt: print()
-        except BrokenPipeError:
+        except (BrokenPipeError, SSLEOFError):
             print("\nReconnecting...")
             ws = ws_connect(sh, host, debug=debug, protocol=ws_protocol)
             print("Reconnected, please try again")
