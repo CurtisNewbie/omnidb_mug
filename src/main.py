@@ -594,9 +594,12 @@ def select_instance(sh: OSession, qc: QueryContext, select_first = False) -> Que
     if select_first: resp = prev_selected
     else:
         resp = input(f"\nPlease select database connections: ").strip().lower()
-        if not resp: resp = prev_selected  # default db connection
+        if not resp or not resp.isdigit(): resp = prev_selected  # default db connection
 
-    selected_idx = int(resp)
+    if isinstance(resp, int):
+        selected_idx = resp
+    else:
+        selected_idx = int(resp)
 
     # invalid answer, select the previous one
     if selected_idx < 0 or selected_idx >= len(db.connections): selected_idx = prev_selected
