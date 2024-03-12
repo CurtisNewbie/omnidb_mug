@@ -18,7 +18,7 @@ from os.path import abspath
 
 # reuse connection
 session = requests.Session()
-version = "0.0.13"
+version = "0.0.14"
 
 TP_SELECT = 0
 TP_SHOW_TABLE = 1
@@ -851,6 +851,8 @@ def launch_console(args):
                     if debug: print(f"[debug] error occurred while reconnecting, {e}")
                     pass # do nothing
 
+                # login
+                sh = login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
                 ws = ws_connect(sh, host, debug=debug, protocol=ws_protocol)
                 print("Reconnected")
                 continue
@@ -920,6 +922,15 @@ def launch_console(args):
         except KeyboardInterrupt: print()
         except (ConnectionError, ssl.SSLError):
             print("\nReconnecting...")
+
+            if ws:
+                try:
+                    ws.close()
+                except Exception as e:
+                    if debug: print(f"[debug] error occurred while reconnecting, {e}")
+                    pass # do nothing
+
+            sh = login(csrf, host, uname, pw, protocol=http_protocol, debug=debug)
             ws = ws_connect(sh, host, debug=debug, protocol=ws_protocol)
             print("Reconnected, please try again")
 
